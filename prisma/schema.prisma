@@ -1,0 +1,192 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+// ========================================
+// AUTHENTICATION & AUTHORIZATION
+// ========================================
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique @db.VarChar(32)
+  
+  // Relations
+  users User[]
+  
+  @@map("roles")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique @db.VarChar(32)
+  email        String    @unique @db.VarChar(100)
+  passwordHash String    @map("password_hash")
+  avatarUrl    String?   @map("avatar_url")
+  reputation   Int       @default(0)
+  roleId       Int       @map("role_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  role              Role              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  posts             Post[]            @relation("PostAuthor")
+  comments          Comment[]         @relation("CommentAuthor")
+  votes             Vote[]
+  reactions         Reaction[]
+  notifications     Notification[]
+  channelMembers    ChannelMember[]
+  inviteCodesCreated InviteCode[]     @relation("InviteCreator")
+  inviteCodesUsed   InviteCode[]     @relation("InviteUser")
+  
+  @@map("users")
+}
+
+model InviteCode {
+  code      String    @id @db.VarChar(64)
+  createdBy Int?      @map("created_by")
+  usedBy    Int?      @map("used_by")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  creator User? @relation("InviteCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  user    User? @relation("InviteUser", fields: [usedBy], references: [id], onDelete: SetNull)
+  
+  @@map("invite_codes")
+}
+
+// ========================================
+// FORUM STRUCTURE
+// ========================================
+
+model Channel {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50)
+  description String?
+  isPrivate   Boolean   @default(false) @map("is_private")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  posts   Post[]
+  members ChannelMember[]
+  
+  @@map("channels")
+}
+
+model ChannelMember {
+  userId    Int @map("user_id")
+  channelId Int @map("channel_id")
+  
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  @@id([userId, channelId])
+  @@map("channel_members")
+}
+
+// ========================================
+// CONTENT
+// ========================================
+
+model Post {
+  id        Int       @id @default(autoincrement())
+  channelId Int       @map("channel_id")
+  authorId  Int?      @map("author_id")
+  title     String
+  content   String
+  isLocked  Boolean   @default(false) @map("is_locked")
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+  
+  // Relations
+  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author   User?     @relation("PostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  comments Comment[]
+  votes    Vote[]
+  
+  @@map("posts")
+}
+
+model Comment {
+  id              Int       @id @default(autoincrement())
+  postId          Int       @map("post_id")
+  authorId        Int?      @map("author_id")
+  parentCommentId Int?      @map("parent_comment_id")
+  content         String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime? @map("updated_at")
+  
+  // Relations
+  post          Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User?      @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  parentComment Comment?   @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies       Comment[]  @relation("CommentReplies")
+  reactions     Reaction[]
+  
+  @@map("comments")
+}
+
+// ========================================
+// INTERACTIONS
+// ========================================
+
+model Reaction {
+  id        Int    @id @default(autoincrement())
+  userId    Int    @map("user_id")
+  commentId Int    @map("comment_id")
+  emoji     String @db.VarChar(16)
+  
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, commentId, emoji])
+  @@map("reactions")
+}
+
+model Vote {
+  id       Int @id @default(autoincrement())
+  userId   Int @map("user_id")
+  postId   Int @map("post_id")
+  voteType Int @map("vote_type") @db.SmallInt // 1 for upvote, -1 for downvote
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, postId])
+  @@map("votes")
+}
+
+// ========================================
+// NOTIFICATIONS
+// ========================================
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   @db.VarChar(32)
+  content   String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
