@@ -21,7 +21,7 @@ export const envs: EnvConfig = {
   PORT: parseInt(process.env.PORT || '3000'),
   NODE_ENV: process.env.NODE_ENV || 'development',
   POSTGRES_URL: getEnvVar('POSTGRES_URL'),
-  JWT_SECRET: getEnvVar('JWT_SECRET'),
+  JWT_SECRET: getEnvVar('JWT_SECRET') || 'default',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '2h',
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS || '12'),
 };
