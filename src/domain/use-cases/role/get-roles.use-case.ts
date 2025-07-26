@@ -1,5 +1,5 @@
-import { RoleEntity, RoleRepository } from '../../';
-
+import { RoleEntity } from '@/domain/entities/role.entity';
+import { RoleRepository } from '@/domain/repositories/role.repository';
 interface GetRolesUseCase {
   execute(): Promise<RoleEntity[]>;
 }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { RoleController } from '../';
+import { Dependencies } from '@/infrastructure/dependencies';
 
 export class RoleRoutes {
   static get routes(): Router {

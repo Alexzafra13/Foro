@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { RoleDatasource, RoleEntity } from '../../domain';
+import { RoleDatasource } from '@/domain/datasources/role.datasource';
+import { RoleEntity } from '@/domain/entities/role.entity';
 
 export class PrismaRoleDatasource implements RoleDatasource {
   constructor(private readonly prisma: PrismaClient) {}

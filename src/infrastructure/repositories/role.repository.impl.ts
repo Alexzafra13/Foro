@@ -1,4 +1,6 @@
-import { RoleEntity, RoleRepository, RoleDatasource } from '../../domain';
+import { RoleEntity } from '@/domain/entities/role.entity';
+import { RoleRepository } from '@/domain/repositories/role.repository';
+import { RoleDatasource } from '@/domain/datasources/role.datasource';
 export class RoleRepositoryImpl implements RoleRepository {
   constructor(private readonly roleDatasource: RoleDatasource) {}
 

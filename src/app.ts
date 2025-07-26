@@ -1,5 +1,5 @@
-import { Server } from './presentation/server';
-import { envs } from './config';
+import { Server } from '@/presentation/server';
+import { envs } from '@/config';  
 
 async function main() {
   const server = new Server(envs.PORT);

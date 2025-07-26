@@ -1,5 +1,5 @@
 import express, { Application } from 'express';
-import { RoleRoutes } from './';
+import { RoleRoutes } from '@/presentation/routes/role.routes';
 export class Server {
   private app: Application;
   private port: number;

@@ -1,7 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaRoleDatasource, RoleRepositoryImpl } from "./";
-import { GetRoles } from "../domain";
-import { RoleController } from "../presentation";
+import { PrismaClient } from '@prisma/client';
+import { PrismaRoleDatasource } from '@/infrastructure/datasources/prisma-role.datasource';
+import { RoleRepositoryImpl } from '@/infrastructure/repositories/role.repository.impl';
+import { GetRoles } from '@/domain/use-cases/role/get-roles.use-case';
+import { RoleController } from '@/presentation/controllers/role.controller';
 
 export class Dependencies {
   static async create() {
