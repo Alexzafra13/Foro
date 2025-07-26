@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "tsnd --respawn --clear src/app.ts",
+    "dev": "tsnd --respawn --clear --require tsconfig-paths/register src/app.ts",
+    "db:seed": "tsx prisma/seed.ts",
     "build": "rimraf ./dist && tsc",
     "start": "npm run build && node dist/app.js"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +29,7 @@
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "tsconfig-paths": "^4.2.0"
   }
 }

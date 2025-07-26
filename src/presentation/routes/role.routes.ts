@@ -2,14 +2,14 @@ import { Router } from 'express';
 import { Dependencies } from '@/infrastructure/dependencies';
 
 export class RoleRoutes {
-  static get routes(): Router {
+  static async getRoutes(): Promise<Router> {
     const router = Router();
     
-    // Aquí inyectarías las dependencias
-    // Por ahora lo dejamos como comentario para que veas la estructura
-    // const roleController = new RoleController(getRolesUseCase);
+    // Crear dependencias
+    const deps = await Dependencies.create();
     
-    // router.get('/', roleController.getAllRoles.bind(roleController));
+    // Configurar ruta GET /
+    router.get('/', deps.controllers.roleController.getAllRoles.bind(deps.controllers.roleController));
     
     return router;
   }

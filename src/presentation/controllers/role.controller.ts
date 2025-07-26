@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { GetRoles } from '../../domain/use-cases/role/get-roles.use-case';
-import { CustomError } from '../../domain/shared';
+import { GetRoles } from '@/domain/use-cases/role/get-roles.use-case';
+import { CustomError } from '@/shared';
 
 export class RoleController {
   constructor(private readonly getRoles: GetRoles) {}
