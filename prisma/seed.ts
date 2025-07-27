@@ -1,5 +1,6 @@
-// prisma/seed.ts - COMPLETO Y FUNCIONAL
+// prisma/seed.ts - CORREGIDO
 import { PrismaClient } from '@prisma/client';
+import { genSaltSync, hashSync } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -359,6 +360,12 @@ async function main() {
       const userRole = await prisma.role.findUnique({ where: { name: 'user' } });
       
       if (adminRole && moderatorRole && userRole) {
+        // Generar hash correcto para admin123
+        const salt = genSaltSync(12);
+        const correctPasswordHash = hashSync('admin123', salt);
+        
+        console.log('🔐 Generando hash correcto para contraseñas...');
+        
         // Usuario admin
         await prisma.user.upsert({
           where: { email: 'admin@foro.local' },
@@ -366,7 +373,7 @@ async function main() {
           create: {
             username: 'admin',
             email: 'admin@foro.local',
-            passwordHash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYJCLWJ2MYKD6g.', // "admin123"
+            passwordHash: correctPasswordHash,
             roleId: adminRole.id,
             reputation: 1000,
           },
@@ -379,7 +386,7 @@ async function main() {
           create: {
             username: 'moderador',
             email: 'mod@foro.local',
-            passwordHash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYJCLWJ2MYKD6g.', // "admin123"
+            passwordHash: correctPasswordHash,
             roleId: moderatorRole.id,
             reputation: 500,
           },
@@ -392,7 +399,7 @@ async function main() {
           create: {
             username: 'usuario_prueba',
             email: 'user@foro.local',
-            passwordHash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYJCLWJ2MYKD6g.', // "admin123"
+            passwordHash: correctPasswordHash,
             roleId: userRole.id,
             reputation: 100,
           },
