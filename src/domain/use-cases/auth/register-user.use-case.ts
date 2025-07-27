@@ -35,6 +35,10 @@ export class RegisterUser implements RegisterUserUseCase {
   constructor(private readonly userRepository: UserRepository) {}
 
   async execute(registerDto: RegisterUserDto): Promise<AuthResponseDto> {
+    // ✅ NORMALIZAR DATOS ANTES DE VALIDAR
+    registerDto.username = registerDto.username.trim();
+    registerDto.email = registerDto.email.trim().toLowerCase();
+
     const { username, email, password } = registerDto;
 
     // 1. Validaciones básicas
@@ -57,8 +61,8 @@ export class RegisterUser implements RegisterUserUseCase {
 
     // 5. Crear usuario (rol 'user' por defecto = id 3)
     const newUser = await this.userRepository.create({
-      username: username.trim(),
-      email: email.toLowerCase().trim(),
+      username: username,
+      email: email,
       passwordHash: hashedPassword,
       roleId: 3 // role 'user' por defecto
     });

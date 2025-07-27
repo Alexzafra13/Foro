@@ -4,3 +4,4 @@ dist/
 /postgres
 /src/generated/prisma
 .vscode/
+coverage/

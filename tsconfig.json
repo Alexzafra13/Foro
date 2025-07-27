@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
@@ -29,21 +29,20 @@
 
     /* Modules */
     "module": "commonjs",                                /* Specify what module code is generated. */
-    "rootDir": "src",                                    /* Specify the root folder within your source files. */
+    "rootDir": ".",                                      /* Specify the root folder within your source files. */
     // "moduleResolution": "node10", 
-    "baseUrl": "src",                   /* Specify how TypeScript looks up a file from a given module specifier. */
+    "baseUrl": ".",                                      /* Specify how TypeScript looks up a file from a given module specifier. */
     "paths": {
-      "@/*": ["*"],            
-      "@/domain/*": ["domain/*"],
-      "@/infrastructure/*": ["infrastructure/*"],
-      "@/presentation/*": ["presentation/*"],
-      "@/config/*": ["config/*"],
-      "@/shared/*": ["shared/*"]
-
+      "@/*": ["src/*"],            
+      "@/domain/*": ["src/domain/*"],
+      "@/infrastructure/*": ["src/infrastructure/*"],
+      "@/presentation/*": ["src/presentation/*"],
+      "@/config/*": ["src/config/*"],
+      "@/shared/*": ["src/shared/*"]
     },                              /* Specify a set of entries that re-map imports to additional lookup locations. */
     // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
-    // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
-    // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
+    "typeRoots": ["./node_modules/@types", "./types"],   /* Specify multiple folders that act like './node_modules/@types'. */
+    "types": ["jest", "node"],                            /* Specify type package names to be included without being referenced in a source file. */
     // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
     // "moduleSuffixes": [],                             /* List of file name suffixes to search when resolving a module. */
     // "allowImportingTsExtensions": true,               /* Allow imports to include TypeScript file extensions. Requires '--moduleResolution bundler' and either '--noEmit' or '--emitDeclarationOnly' to be set. */
