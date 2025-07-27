@@ -74,14 +74,19 @@ model InviteCode {
 
 model Channel {
   id          Int       @id @default(autoincrement())
+  categoryId  Int?      @map("category_id")        
   name        String    @unique @db.VarChar(50)
   description String?
+  icon        String?   @db.VarChar(32)             
+  position    Int       @default(0)                 
   isPrivate   Boolean   @default(false) @map("is_private")
+  isVisible   Boolean   @default(true) @map("is_visible")  
   createdAt   DateTime  @default(now()) @map("created_at")
   
   // Relations
-  posts   Post[]
-  members ChannelMember[]
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull) 
+  posts    Post[]
+  members  ChannelMember[]
   
   @@map("channels")
 }
@@ -96,6 +101,21 @@ model ChannelMember {
   
   @@id([userId, channelId])
   @@map("channel_members")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?
+  icon        String?  @db.VarChar(32)
+  position    Int      @default(0)
+  isVisible   Boolean  @default(true) @map("is_visible")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  channels Channel[]
+  
+  @@map("categories")
 }
 
 // ========================================

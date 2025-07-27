@@ -1,0 +1,11 @@
+import { UserEntity } from '../entities/user.entity';
+import { CreateUserDto } from '../datasources/user.datasource';
+
+export abstract class UserRepository {
+  abstract create(createUserDto: CreateUserDto): Promise<UserEntity>;
+  abstract findById(id: number): Promise<UserEntity | null>;
+  abstract findByEmail(email: string): Promise<UserEntity | null>;
+  abstract findByUsername(username: string): Promise<UserEntity | null>;
+  abstract updateById(id: number, data: Partial<UserEntity>): Promise<UserEntity>;
+  abstract deleteById(id: number): Promise<UserEntity>;
+}

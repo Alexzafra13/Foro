@@ -1,30 +1,33 @@
+// src/infrastructure/dependencies.ts
 import { PrismaClient } from '@prisma/client';
-import { PrismaRoleDatasource } from '@/infrastructure/datasources/prisma-role.datasource';
-import { RoleRepositoryImpl } from '@/infrastructure/repositories/role.repository.impl';
-import { GetRoles } from '@/domain/use-cases/role/get-roles.use-case';
-import { RoleController } from '@/presentation/controllers/role.controller';
+import { PrismaUserDatasource } from './datasources/prisma-user.datasource';
+import { UserRepositoryImpl } from './repositories/user.repository.impl';
+import { RegisterUser } from '../domain/use-cases/auth/register-user.use-case';
+import { LoginUser } from '../domain/use-cases/auth/login-user.use-case';
+import { AuthController } from '../presentation/controllers/auth.controller';
 
 export class Dependencies {
   static async create() {
     // Database
     const prisma = new PrismaClient();
-
+    
     // Datasources
-    const roleDatasource = new PrismaRoleDatasource(prisma);
-
+    const userDatasource = new PrismaUserDatasource(prisma);
+    
     // Repositories
-    const roleRepository = new RoleRepositoryImpl(roleDatasource);
-
+    const userRepository = new UserRepositoryImpl(userDatasource);
+    
     // Use Cases
-    const getRoles = new GetRoles(roleRepository);
-
+    const registerUser = new RegisterUser(userRepository);
+    const loginUser = new LoginUser(userRepository);
+    
     // Controllers
-    const roleController = new RoleController(getRoles);
-
+    const authController = new AuthController(registerUser, loginUser);
+    
     return {
       prisma,
       controllers: {
-        roleController,
+        authController,
       },
     };
   }

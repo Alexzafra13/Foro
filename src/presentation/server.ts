@@ -1,5 +1,5 @@
-import express, { Application } from 'express';
-import { RoleRoutes } from '@/presentation/routes/role.routes';
+import express, { Application } from "express";
+import { AuthRoutes } from "../presentation/routes/auth.routes";
 
 export class Server {
   private app: Application;
@@ -18,25 +18,25 @@ export class Server {
 
   private async routes() {
     // Ruta de health check
-    this.app.get('/health', (req, res) => {
-      res.json({ 
-        status: 'OK', 
+    this.app.get("/health", (req, res) => {
+      res.json({
+        status: "OK",
         timestamp: new Date().toISOString(),
-        service: 'Forum API'
+        service: "Forum API",
       });
     });
 
-    // Rutas de roles
-    this.app.use('/api/roles', await RoleRoutes.getRoutes());
+    // Rutas de autenticación
+    this.app.use("/api/auth", await AuthRoutes.getRoutes());
   }
 
   async start() {
-    await this.routes(); // ✅ Importante: await aquí
-    
+    await this.routes();
+
     this.app.listen(this.port, () => {
       console.log(`🚀 Server running on port ${this.port}`);
       console.log(`📡 Health check: http://localhost:${this.port}/health`);
-      console.log(`🔗 Roles API: http://localhost:${this.port}/api/roles`);
+      console.log(`🔗 Auth API: http://localhost:${this.port}/api/auth`);
     });
   }
 }
