@@ -1,5 +1,3 @@
-// tests/setup.ts
-import 'dotenv/config';
 
 // Variables de entorno para tests
 process.env.NODE_ENV = 'test';
