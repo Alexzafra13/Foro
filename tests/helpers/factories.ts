@@ -18,7 +18,9 @@ export class TestFactory {
         id: faker.number.int({ min: 1, max: 3 }),
         name: faker.helpers.arrayElement(['admin', 'moderator', 'user'])
       },
-      overrides?.avatarUrl ?? faker.image.avatar()
+      overrides?.avatarUrl ?? faker.image.avatar(),
+      overrides?.isEmailVerified ?? false,
+      overrides?.emailVerifiedAt ?? null
     );
   }
 
@@ -89,6 +91,8 @@ export class TestFactory {
       roleId: overrides?.roleId ?? role.id,
       createdAt: overrides?.createdAt ?? new Date(),
       avatarUrl: overrides?.avatarUrl ?? null,
+      isEmailVerified: overrides?.isEmailVerified ?? false,
+      emailVerifiedAt: overrides?.emailVerifiedAt ?? null,
       role: role
     };
   }
@@ -114,6 +118,68 @@ export class TestFactory {
       usedBy: overrides?.usedBy ?? null,
       usedAt: overrides?.usedAt ?? null,
       createdAt: overrides?.createdAt ?? faker.date.past()
+    };
+  }
+
+  // Factory para EmailVerificationToken
+  static createEmailVerificationTokenEntity(overrides?: Partial<any>) {
+    return {
+      id: overrides?.id ?? faker.number.int({ min: 1, max: 1000 }),
+      userId: overrides?.userId ?? faker.number.int({ min: 1, max: 100 }),
+      token: overrides?.token ?? faker.string.hexadecimal({ length: 64, prefix: '' }),
+      expiresAt: overrides?.expiresAt ?? faker.date.future(),
+      createdAt: overrides?.createdAt ?? faker.date.past(),
+      usedAt: overrides?.usedAt ?? null,
+      user: overrides?.user ?? {
+        id: faker.number.int({ min: 1, max: 100 }),
+        email: faker.internet.email(),
+        username: faker.internet.userName()
+      },
+      // Métodos de dominio mock
+      isExpired: jest.fn().mockReturnValue(overrides?.isExpired ?? false),
+      isUsed: jest.fn().mockReturnValue(overrides?.isUsed ?? false),
+      canBeUsed: jest.fn().mockReturnValue(overrides?.canBeUsed ?? true),
+      markAsUsed: jest.fn()
+    };
+  }
+
+  // Métodos helper para crear tokens específicos
+  static createValidEmailVerificationToken() {
+    return TestFactory.createEmailVerificationTokenEntity({
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 horas en el futuro
+      usedAt: null,
+      isExpired: false,
+      isUsed: false,
+      canBeUsed: true
+    });
+  }
+
+  static createExpiredEmailVerificationToken() {
+    return TestFactory.createEmailVerificationTokenEntity({
+      expiresAt: new Date(Date.now() - 1000 * 60 * 60), // 1 hora en el pasado
+      usedAt: null,
+      isExpired: true,
+      isUsed: false,
+      canBeUsed: false
+    });
+  }
+
+  static createUsedEmailVerificationToken() {
+    return TestFactory.createEmailVerificationTokenEntity({
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 horas en el futuro
+      usedAt: faker.date.past(),
+      isExpired: false,
+      isUsed: true,
+      canBeUsed: false
+    });
+  }
+
+  // DTO para crear tokens
+  static createEmailVerificationTokenDto() {
+    return {
+      userId: faker.number.int({ min: 1, max: 100 }),
+      token: faker.string.hexadecimal({ length: 64, prefix: '' }),
+      expiresAt: faker.date.future()
     };
   }
 
@@ -217,6 +283,21 @@ export class TestFactory {
     return TestFactory.createUserEntity({
       role: { id: 3, name: 'user' },
       roleId: 3
+    });
+  }
+
+  // Usuarios específicos para testing de email verification
+  static createVerifiedUser(): UserEntity {
+    return TestFactory.createUserEntity({
+      isEmailVerified: true,
+      emailVerifiedAt: faker.date.past()
+    });
+  }
+
+  static createUnverifiedUser(): UserEntity {
+    return TestFactory.createUserEntity({
+      isEmailVerified: false,
+      emailVerifiedAt: null
     });
   }
 }

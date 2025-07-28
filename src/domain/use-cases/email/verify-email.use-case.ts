@@ -21,25 +21,29 @@ export interface VerifyEmailResponseDto {
 // Errores específicos para verificación de email
 export class EmailVerificationErrors {
   static tokenNotFound(token: string) {
-    return new ValidationErrors.invalidFormat('Verification token', `token '${token}' not found`);
+    // ✅ CORREGIDO: quitar 'new' antes de ValidationErrors.invalidFormat
+    return ValidationErrors.invalidFormat('Verification token', `token '${token}' not found`);
   }
 
   static tokenExpired(expiresAt: Date) {
-    return new ValidationErrors.invalidFormat(
+    // ✅ CORREGIDO: quitar 'new' antes de ValidationErrors.invalidFormat
+    return ValidationErrors.invalidFormat(
       'Verification token', 
       `expired on ${expiresAt.toLocaleDateString()}`
     );
   }
 
   static tokenAlreadyUsed(usedAt: Date) {
-    return new ValidationErrors.invalidFormat(
+    // ✅ CORREGIDO: quitar 'new' antes de ValidationErrors.invalidFormat
+    return ValidationErrors.invalidFormat(
       'Verification token', 
       `already used on ${usedAt.toLocaleDateString()}`
     );
   }
 
   static emailAlreadyVerified() {
-    return new ValidationErrors.invalidFormat(
+    // ✅ CORREGIDO: quitar 'new' antes de ValidationErrors.invalidFormat
+    return ValidationErrors.invalidFormat(
       'Email', 
       'already verified'
     );

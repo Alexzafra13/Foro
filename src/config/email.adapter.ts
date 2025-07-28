@@ -16,7 +16,8 @@ export class GmailAdapter implements EmailAdapter {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    // ✅ CORREGIDO: usar 'createTransport' en lugar de 'createTransporter'
+    this.transporter = nodemailer.createTransport({
       service: envs.MAILER_SERVICE, // 'gmail'
       auth: {
         user: envs.MAILER_EMAIL,    // foroapp1@gmail.com
