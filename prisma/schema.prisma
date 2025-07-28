@@ -39,6 +39,8 @@ model User {
   reputation   Int       @default(0)
   roleId       Int       @map("role_id")
   createdAt    DateTime  @default(now()) @map("created_at")
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
   
   // Relations
   role              Role              @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -50,6 +52,7 @@ model User {
   channelMembers    ChannelMember[]
   inviteCodesCreated InviteCode[]     @relation("InviteCreator")
   inviteCodesUsed   InviteCode[]     @relation("InviteUser")
+  emailVerificationTokens EmailVerificationToken[] 
   
   @@map("users")
 }
@@ -209,4 +212,22 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("notifications")
+}
+
+// ========================================
+// EMAIL VERIFICATION
+// ========================================
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  usedAt    DateTime? @map("used_at")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("email_verification_tokens")
 }

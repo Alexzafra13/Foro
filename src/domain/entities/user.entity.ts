@@ -1,3 +1,4 @@
+// src/domain/entities/user.entity.ts (ACTUALIZADO)
 export class UserEntity {
   constructor(
     public id: number,
@@ -8,13 +9,16 @@ export class UserEntity {
     public roleId: number,
     public createdAt: Date,
     public role?: { id: number; name: string },
-    public avatarUrl?: string | null
+    public avatarUrl?: string | null,
+    public isEmailVerified?: boolean,
+    public emailVerifiedAt?: Date | null
   ) {}
 
   static fromObject(object: { [key: string]: any }): UserEntity {
     const { 
       id, username, email, passwordHash, reputation, 
-      roleId, createdAt, role, avatarUrl 
+      roleId, createdAt, role, avatarUrl,
+      isEmailVerified, emailVerifiedAt  
     } = object;
     
     if (!id) throw new Error('User id is required');
@@ -25,7 +29,26 @@ export class UserEntity {
     return new UserEntity(
       id, username, email, passwordHash, 
       reputation || 0, roleId, createdAt, 
-      role, avatarUrl
+      role, avatarUrl,
+      isEmailVerified || false,
+      emailVerifiedAt || null    
     );
+  }
+
+  isVerified(): boolean {
+    return this.isEmailVerified === true;
+  }
+
+  canCreateContent(): boolean {
+    return this.isVerified();
+  }
+
+  markAsVerified(): void {
+    this.isEmailVerified = true;
+    this.emailVerifiedAt = new Date();
+  }
+
+  needsEmailVerification(): boolean {
+    return !this.isEmailVerified;
   }
 }

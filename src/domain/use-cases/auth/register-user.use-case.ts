@@ -1,15 +1,17 @@
 import { UserRepository } from '../../repositories/user.repository';
-import { InviteCodeRepository } from '@/domain/repositories/invite-code.repository'; 
+import { InviteCodeRepository } from '../../repositories/invite-code.repository';
+import { UserEntity } from '../../entities/user.entity';
 import { UserErrors, ValidationErrors, InviteCodeErrors } from '../../../shared/errors';
-import { bcryptAdapter } from '../../../config/bcrypt.adapter'; 
+import { bcryptAdapter } from '../../../config/bcrypt.adapter';
 import { JwtAdapter } from '../../../config/jwt.adapter';
+import { SendVerificationEmail } from '../email/send-verification-email.use-case';
 
-// DTOs actualizados para incluir invite code
+// DTOs actualizados
 export interface RegisterUserDto {
   username: string;
   email: string;
   password: string;
-  inviteCode: string; // ¡NUEVO CAMPO REQUERIDO!
+  inviteCode: string;
 }
 
 export interface AuthResponseDto {
@@ -23,9 +25,11 @@ export interface AuthResponseDto {
     };
     reputation: number;
     createdAt: Date;
+    isEmailVerified: boolean; // ✅ NUEVO CAMPO
   };
   token: string;
-  inviteCodeUsed: string; // Info del código usado
+  inviteCodeUsed: string;
+  emailVerificationSent: boolean; // ✅ NUEVO CAMPO
 }
 
 interface RegisterUserUseCase {
@@ -35,7 +39,8 @@ interface RegisterUserUseCase {
 export class RegisterUser implements RegisterUserUseCase {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly inviteCodeRepository: InviteCodeRepository
+    private readonly inviteCodeRepository: InviteCodeRepository,
+    private readonly sendVerificationEmail: SendVerificationEmail // ✅ NUEVO DEPENDENCY
   ) {}
 
   async execute(registerDto: RegisterUserDto): Promise<AuthResponseDto> {
@@ -67,7 +72,7 @@ export class RegisterUser implements RegisterUserUseCase {
     // 5. Encriptar contraseña con bcrypt
     const hashedPassword = bcryptAdapter.hash(password);
 
-    // 6. Crear usuario (rol 'user' por defecto = id 3)
+    // 6. Crear usuario (rol 'user' por defecto = id 3, EMAIL NO VERIFICADO)
     const newUser = await this.userRepository.create({
       username: username,
       email: email,
@@ -78,7 +83,18 @@ export class RegisterUser implements RegisterUserUseCase {
     // 7. 🔥 MARCAR CÓDIGO DE INVITACIÓN COMO USADO
     await this.inviteCodeRepository.markAsUsed(inviteCode, newUser.id);
 
-    // 8. Generar JWT con id y email
+    // 8. ✅ ENVIAR EMAIL DE VERIFICACIÓN
+    let emailVerificationSent = false;
+    try {
+      await this.sendVerificationEmail.execute({ userId: newUser.id });
+      emailVerificationSent = true;
+      console.log(`📧 Verification email sent to ${email}`);
+    } catch (error) {
+      console.error('❌ Failed to send verification email:', error);
+      // No fallar el registro, solo logear el error
+    }
+
+    // 9. Generar JWT con id y email
     const token = JwtAdapter.generateToken({
       userId: newUser.id,
       email: newUser.email
@@ -88,7 +104,7 @@ export class RegisterUser implements RegisterUserUseCase {
       throw new Error('Error generating authentication token');
     }
 
-    // 9. Retornar respuesta sin contraseña + info del código
+    // 10. Retornar respuesta con información de verificación
     return {
       user: {
         id: newUser.id,
@@ -96,10 +112,12 @@ export class RegisterUser implements RegisterUserUseCase {
         email: newUser.email,
         role: newUser.role!,
         reputation: newUser.reputation,
-        createdAt: newUser.createdAt
+        createdAt: newUser.createdAt,
+        isEmailVerified: newUser.isEmailVerified || false // ✅ NUEVO
       },
       token,
-      inviteCodeUsed: inviteCode
+      inviteCodeUsed: inviteCode,
+      emailVerificationSent // ✅ NUEVO
     };
   }
 
