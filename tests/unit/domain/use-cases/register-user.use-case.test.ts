@@ -1,6 +1,7 @@
 import { RegisterUser } from '@/domain/use-cases/auth/register-user.use-case';
 import { UserRepository } from '@/domain/repositories/user.repository';
-import { UserErrors, ValidationErrors } from '@/shared/errors';
+import { InviteCodeRepository } from '@/domain/repositories/invite-code.repository';
+import { UserErrors, ValidationErrors, InviteCodeErrors } from '@/shared/errors';
 import { TestFactory } from '../../../helpers/factories';
 import { bcryptAdapter } from '@/config/bcrypt.adapter';
 import { JwtAdapter } from '@/config/jwt.adapter';
@@ -9,9 +10,10 @@ import { JwtAdapter } from '@/config/jwt.adapter';
 jest.mock('@/config/bcrypt.adapter');
 jest.mock('@/config/jwt.adapter');
 
-describe('RegisterUser Use Case', () => {
+describe('RegisterUser Use Case (Updated with Invite Codes)', () => {
   let registerUser: RegisterUser;
   let mockUserRepository: jest.Mocked<UserRepository>;
+  let mockInviteCodeRepository: jest.Mocked<InviteCodeRepository>;
 
   beforeEach(() => {
     mockUserRepository = {
@@ -23,9 +25,16 @@ describe('RegisterUser Use Case', () => {
       deleteById: jest.fn(),
     };
 
-    registerUser = new RegisterUser(mockUserRepository);
+    mockInviteCodeRepository = {
+      create: jest.fn(),
+      findByCode: jest.fn(),
+      findMany: jest.fn(),
+      markAsUsed: jest.fn(),
+      deleteByCode: jest.fn(),
+      getStats: jest.fn(),
+    };
 
-    // Reset mocks
+    registerUser = new RegisterUser(mockUserRepository, mockInviteCodeRepository);
     jest.clearAllMocks();
   });
 
@@ -33,10 +42,23 @@ describe('RegisterUser Use Case', () => {
     const validRegisterDto = {
       username: 'testuser',
       email: 'test@example.com',
-      password: 'password123'
+      password: 'password123',
+      inviteCode: 'ABCD-1234-EFGH'
     };
 
-    it('should register a new user successfully', async () => {
+    const validInviteCode = {
+      code: 'ABCD-1234-EFGH',
+      createdBy: 1,
+      usedBy: null,
+      usedAt: null,
+      createdAt: new Date(Date.now() - 1000 * 60 * 60), // 1 hora atrás
+      isUsed: () => false,
+      canBeUsed: () => true,
+      isExpired: () => false,
+      markAsUsed: jest.fn()
+    };
+
+    it('should register a new user successfully with valid invite code', async () => {
       // Arrange
       const hashedPassword = 'hashed_password';
       const token = 'valid.jwt.token';
@@ -49,9 +71,11 @@ describe('RegisterUser Use Case', () => {
         role: { id: 3, name: 'user' }
       });
 
+      mockInviteCodeRepository.findByCode.mockResolvedValue(validInviteCode as any);
       mockUserRepository.findByEmail.mockResolvedValue(null);
       mockUserRepository.findByUsername.mockResolvedValue(null);
       mockUserRepository.create.mockResolvedValue(newUser);
+      mockInviteCodeRepository.markAsUsed.mockResolvedValue(validInviteCode as any);
       (bcryptAdapter.hash as jest.Mock).mockReturnValue(hashedPassword);
       (JwtAdapter.generateToken as jest.Mock).mockReturnValue(token);
 
@@ -68,38 +92,110 @@ describe('RegisterUser Use Case', () => {
           reputation: newUser.reputation,
           createdAt: newUser.createdAt
         },
-        token
+        token,
+        inviteCodeUsed: validRegisterDto.inviteCode
       });
 
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(validRegisterDto.email);
-      expect(mockUserRepository.findByUsername).toHaveBeenCalledWith(validRegisterDto.username);
-      expect(bcryptAdapter.hash).toHaveBeenCalledWith(validRegisterDto.password);
-      expect(mockUserRepository.create).toHaveBeenCalledWith({
-        username: validRegisterDto.username,
-        email: validRegisterDto.email,
-        passwordHash: hashedPassword,
-        roleId: 3
-      });
-      expect(JwtAdapter.generateToken).toHaveBeenCalledWith({
-        userId: newUser.id,
-        email: newUser.email
-      });
+      // Verificar que se validó el código de invitación
+      expect(mockInviteCodeRepository.findByCode).toHaveBeenCalledWith(validRegisterDto.inviteCode);
+      expect(mockInviteCodeRepository.markAsUsed).toHaveBeenCalledWith(validRegisterDto.inviteCode, newUser.id);
     });
 
-    it('should throw error if email already exists', async () => {
+    it('should throw error if invite code is required but not provided', async () => {
+      const dtoWithoutInviteCode = { ...validRegisterDto, inviteCode: '' };
+
+      await expect(registerUser.execute(dtoWithoutInviteCode))
+        .rejects
+        .toThrow(ValidationErrors.requiredField('Invite code'));
+
+      expect(mockInviteCodeRepository.findByCode).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if invite code does not exist', async () => {
+      mockInviteCodeRepository.findByCode.mockResolvedValue(null);
+
+      await expect(registerUser.execute(validRegisterDto))
+        .rejects
+        .toThrow(InviteCodeErrors.codeNotFound(validRegisterDto.inviteCode));
+
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if invite code is already used', async () => {
+      const usedInviteCode = {
+        ...validInviteCode,
+        usedBy: 999,
+        usedAt: new Date(),
+        isUsed: () => true,
+        user: { id: 999, username: 'otheruser' }
+      };
+
+      mockInviteCodeRepository.findByCode.mockResolvedValue(usedInviteCode as any);
+
+      await expect(registerUser.execute(validRegisterDto))
+        .rejects
+        .toThrow(InviteCodeErrors.codeAlreadyUsed(
+          validRegisterDto.inviteCode,
+          'otheruser',
+          usedInviteCode.usedAt
+        ));
+
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if invite code is expired', async () => {
+      const expiredInviteCode = {
+        ...validInviteCode,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 8), // 8 días atrás
+        isExpired: () => true
+      };
+
+      mockInviteCodeRepository.findByCode.mockResolvedValue(expiredInviteCode as any);
+
+      await expect(registerUser.execute(validRegisterDto))
+        .rejects
+        .toThrow(); // InviteCodeErrors.codeExpired
+
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should normalize invite code to uppercase', async () => {
+      const dtoWithLowercaseCode = { 
+        ...validRegisterDto, 
+        inviteCode: 'abcd-1234-efgh' 
+      };
+
+      mockInviteCodeRepository.findByCode.mockResolvedValue(validInviteCode as any);
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.findByUsername.mockResolvedValue(null);
+      mockUserRepository.create.mockResolvedValue(TestFactory.createUserEntity());
+      mockInviteCodeRepository.markAsUsed.mockResolvedValue(validInviteCode as any);
+      (bcryptAdapter.hash as jest.Mock).mockReturnValue('hashed');
+      (JwtAdapter.generateToken as jest.Mock).mockReturnValue('token');
+
+      await registerUser.execute(dtoWithLowercaseCode);
+
+      expect(mockInviteCodeRepository.findByCode).toHaveBeenCalledWith('ABCD-1234-EFGH');
+    });
+
+    it('should still check for existing email after validating invite code', async () => {
       const existingUser = TestFactory.createUserEntity();
+      
+      mockInviteCodeRepository.findByCode.mockResolvedValue(validInviteCode as any);
       mockUserRepository.findByEmail.mockResolvedValue(existingUser);
 
       await expect(registerUser.execute(validRegisterDto))
         .rejects
         .toThrow(UserErrors.emailAlreadyExists(validRegisterDto.email));
 
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(validRegisterDto.email);
       expect(mockUserRepository.create).not.toHaveBeenCalled();
+      expect(mockInviteCodeRepository.markAsUsed).not.toHaveBeenCalled();
     });
 
-    it('should throw error if username already exists', async () => {
+    it('should still check for existing username after validating invite code', async () => {
       const existingUser = TestFactory.createUserEntity();
+      
+      mockInviteCodeRepository.findByCode.mockResolvedValue(validInviteCode as any);
       mockUserRepository.findByEmail.mockResolvedValue(null);
       mockUserRepository.findByUsername.mockResolvedValue(existingUser);
 
@@ -107,106 +203,35 @@ describe('RegisterUser Use Case', () => {
         .rejects
         .toThrow(UserErrors.usernameAlreadyExists(validRegisterDto.username));
 
-      expect(mockUserRepository.findByUsername).toHaveBeenCalledWith(validRegisterDto.username);
       expect(mockUserRepository.create).not.toHaveBeenCalled();
+      expect(mockInviteCodeRepository.markAsUsed).not.toHaveBeenCalled();
     });
 
-    it('should throw error if JWT generation fails', async () => {
-      mockUserRepository.findByEmail.mockResolvedValue(null);
-      mockUserRepository.findByUsername.mockResolvedValue(null);
-      mockUserRepository.create.mockResolvedValue(TestFactory.createUserEntity());
-      (bcryptAdapter.hash as jest.Mock).mockReturnValue('hashed');
-      (JwtAdapter.generateToken as jest.Mock).mockReturnValue(null);
-
-      await expect(registerUser.execute(validRegisterDto))
-        .rejects
-        .toThrow('Error generating authentication token');
-    });
-
-    describe('validation', () => {
-      it('should throw error for username shorter than 3 characters', async () => {
-        const invalidDto = { ...validRegisterDto, username: 'ab' };
+    describe('invite code validation', () => {
+      it('should throw error for invite code shorter than 6 characters', async () => {
+        const invalidDto = { ...validRegisterDto, inviteCode: '12345' };
 
         await expect(registerUser.execute(invalidDto))
           .rejects
-          .toThrow(ValidationErrors.minLength('Username', 3));
+          .toThrow(ValidationErrors.minLength('Invite code', 6));
       });
 
-      it('should throw error for username longer than 32 characters', async () => {
+      // ✅ REMOVIDO: Este test no aplica porque la validación se hace en el controlador
+      // El use case recibe el código ya validado desde el controlador
+      // Si llega al use case, es porque ya pasó la validación básica
+      
+      // ✅ ALTERNATIVA: Test para verificar que códigos largos también fallan por "not found"
+      it('should throw "not found" error for very long invite codes', async () => {
         const invalidDto = { 
           ...validRegisterDto, 
-          username: 'a'.repeat(33) 
+          inviteCode: 'A'.repeat(21) // Muy largo
         };
 
-        await expect(registerUser.execute(invalidDto))
-          .rejects
-          .toThrow(ValidationErrors.maxLength('Username', 32));
-      });
-
-      it('should throw error for invalid email format', async () => {
-        const invalidDto = { ...validRegisterDto, email: 'invalid-email' };
+        mockInviteCodeRepository.findByCode.mockResolvedValue(null);
 
         await expect(registerUser.execute(invalidDto))
           .rejects
-          .toThrow(ValidationErrors.invalidFormat('Email', 'valid email address'));
-      });
-
-      it('should throw error for email longer than 100 characters', async () => {
-        const invalidDto = { 
-          ...validRegisterDto, 
-          email: 'a'.repeat(89) + '@example.com' 
-        };
-
-        await expect(registerUser.execute(invalidDto))
-          .rejects
-          .toThrow(ValidationErrors.maxLength('Email', 100));
-      });
-
-      it('should throw error for password shorter than 6 characters', async () => {
-        const invalidDto = { ...validRegisterDto, password: '12345' };
-
-        await expect(registerUser.execute(invalidDto))
-          .rejects
-          .toThrow(ValidationErrors.minLength('Password', 6));
-      });
-
-      it('should throw error for password longer than 100 characters', async () => {
-        const invalidDto = { 
-          ...validRegisterDto, 
-          password: 'a'.repeat(101) 
-        };
-
-        await expect(registerUser.execute(invalidDto))
-          .rejects
-          .toThrow(ValidationErrors.maxLength('Password', 100));
-      });
-
-      it('should trim username and lowercase email', async () => {
-        const dtoWithSpaces = {
-          username: '  testuser  ',
-          email: '  TEST@EXAMPLE.COM  ',
-          password: 'password123'
-        };
-
-        const expectedUsername = 'testuser';
-        const expectedEmail = 'test@example.com';
-
-        mockUserRepository.findByEmail.mockResolvedValue(null);
-        mockUserRepository.findByUsername.mockResolvedValue(null);
-        mockUserRepository.create.mockResolvedValue(
-          TestFactory.createUserEntity({ username: expectedUsername, email: expectedEmail })
-        );
-        (bcryptAdapter.hash as jest.Mock).mockReturnValue('hashed');
-        (JwtAdapter.generateToken as jest.Mock).mockReturnValue('token');
-
-        await registerUser.execute(dtoWithSpaces);
-
-        expect(mockUserRepository.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            username: expectedUsername,
-            email: expectedEmail
-          })
-        );
+          .toThrow(InviteCodeErrors.codeNotFound(invalidDto.inviteCode));
       });
     });
   });

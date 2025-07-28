@@ -1,8 +1,7 @@
-// src/presentation/controllers/auth.controller.ts
 import { Request, Response } from 'express';
 import { RegisterUser, RegisterUserDto } from '../../domain/use-cases/auth/register-user.use-case';
 import { LoginUser, LoginUserDto } from '../../domain/use-cases/auth/login-user.use-case';
-import { CustomError, DomainError } from '../../shared/errors';
+import { CustomError, DomainError, ValidationErrors } from '../../shared/errors';
 
 export class AuthController {
   constructor(
@@ -12,12 +11,28 @@ export class AuthController {
 
   async register(req: Request, res: Response) {
     try {
-      const { username, email, password }: RegisterUserDto = req.body;
+      // ✅ VALIDACIÓN PREVIA del request body
+      const { username, email, password, inviteCode } = req.body;
       
+      // Verificar que todos los campos requeridos estén presentes
+      if (!username) {
+        throw ValidationErrors.requiredField('Username');
+      }
+      if (!email) {
+        throw ValidationErrors.requiredField('Email');
+      }
+      if (!password) {
+        throw ValidationErrors.requiredField('Password');
+      }
+      if (!inviteCode) {
+        throw ValidationErrors.requiredField('Invite code');
+      }
+
       const result = await this.registerUser.execute({
         username,
         email,
-        password
+        password,
+        inviteCode
       });
 
       res.status(201).json({
