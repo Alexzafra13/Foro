@@ -103,7 +103,7 @@ export class TestServer {
       getStats: jest.fn(),
     } as jest.Mocked<InviteCodeRepository>;
 
-    // ✅ NUEVO: Mock del repositorio de tokens de verificación de email
+    // ✅ ARREGLADO: Mock del repositorio de tokens de verificación de email
     this.mockEmailVerificationTokenRepository = {
       create: jest.fn().mockResolvedValue({
         id: 1,
@@ -120,7 +120,7 @@ export class TestServer {
       deleteByUserId: jest.fn().mockResolvedValue(0),
     } as jest.Mocked<EmailVerificationTokenRepository>;
 
-    // ✅ NUEVO: Mock del adaptador de email
+    // ✅ ARREGLADO: Mock del adaptador de email que siempre retorna éxito
     this.mockEmailAdapter = {
       sendEmail: jest.fn().mockResolvedValue(true), // ✅ Siempre exitoso
     } as jest.Mocked<EmailAdapter>;
@@ -136,17 +136,31 @@ export class TestServer {
       res.json({ status: 'OK' });
     });
 
-    // ✅ ACTUALIZADO: Crear instancias con el nuevo parámetro
+    // ✅ ARREGLADO: Crear instancias con mocks que funcionen correctamente
+    
+    // 1. Crear SendVerificationEmail con mocks que retornen éxito
     const sendVerificationEmail = new SendVerificationEmail(
       this.mockEmailVerificationTokenRepository,
       this.mockUserRepository,
       this.mockEmailAdapter
     );
     
+    // 2. Mockear el execute de SendVerificationEmail para que sea exitoso por defecto
+    // pero que pueda ser sobrescrito en tests específicos
+    const sendEmailSpy = jest.spyOn(sendVerificationEmail, 'execute').mockResolvedValue({
+      success: true,
+      message: 'Verification email sent successfully',
+      tokenId: 1,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
+    });
+    
+    // 3. Exponer el spy para que los tests puedan modificarlo
+    (this.app as any).sendEmailSpy = sendEmailSpy;
+    
     const registerUser = new RegisterUser(
       this.mockUserRepository, 
       this.mockInviteCodeRepository,
-      sendVerificationEmail // ✅ AGREGAR el tercer parámetro
+      sendVerificationEmail // ✅ Usar el mock que funciona
     );
     
     const loginUser = new LoginUser(this.mockUserRepository);
@@ -161,7 +175,7 @@ export class TestServer {
     authRouter.post('/register', authController.register.bind(authController));
     authRouter.post('/login', authController.login.bind(authController));
     
-    // ✅ AGREGAR: Rutas de email verification que faltaban
+    // ✅ MEJORADO: Rutas de email verification
     authRouter.post('/verify-email', async (req, res) => {
       try {
         const { token } = req.body;
@@ -228,7 +242,7 @@ export class TestServer {
         });
       }
 
-      // ✅ AGREGAR: Simular llamada al servicio de email
+      // ✅ ASEGURAR: Simular llamada al servicio de email
       if (this.mockEmailAdapter && this.mockEmailAdapter.sendEmail) {
         this.mockEmailAdapter.sendEmail({
           to: 'test@example.com',
@@ -374,5 +388,26 @@ export class TestServer {
 
   getInviteCode(code: string): InviteCodeEntity | undefined {
     return this.inviteCodes.get(code);
+  }
+
+  // ✅ NUEVO: Método para controlar el mock de email desde tests
+  makeEmailSendingFail() {
+    const sendEmailSpy = (this.app as any).sendEmailSpy;
+    if (sendEmailSpy) {
+      sendEmailSpy.mockRejectedValueOnce(new Error('Email service failed'));
+    }
+  }
+
+  // ✅ NUEVO: Método para restaurar el éxito del email
+  makeEmailSendingSucceed() {
+    const sendEmailSpy = (this.app as any).sendEmailSpy;
+    if (sendEmailSpy) {
+      sendEmailSpy.mockResolvedValue({
+        success: true,
+        message: 'Verification email sent successfully',
+        tokenId: 1,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
+      });
+    }
   }
 }

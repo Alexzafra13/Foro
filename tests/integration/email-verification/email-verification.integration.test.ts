@@ -216,56 +216,57 @@ describe('Email Verification Integration Tests', () => {
     });
   });
 
-  describe('Email sending during registration', () => {
-    it('should send verification email when user registers', async () => {
-      // Setup
-      const validInviteCode = 'EMAIL-TEST-CODE';
-      testServer.addInviteCode(validInviteCode, 1);
+describe('Email sending during registration', () => {
+  it('should send verification email when user registers', async () => {
+    // Setup
+    const validInviteCode = 'EMAIL-TEST-CODE';
+    testServer.addInviteCode(validInviteCode, 1);
 
-      const newUser = {
-        username: 'emailtest',
-        email: 'emailtest@example.com',
-        password: 'password123',
-        inviteCode: validInviteCode
-      };
+    const newUser = {
+      username: 'emailtest',
+      email: 'emailtest@example.com',
+      password: 'password123',
+      inviteCode: validInviteCode
+    };
 
-      // Act
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(newUser)
-        .expect(201);
+    // Act
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send(newUser)
+      .expect(201);
 
-      // Assert - El registro debe ser exitoso y reportar email enviado
-      expect(response.body.data.emailVerificationSent).toBe(true);
-      expect(response.body.data.user.isEmailVerified).toBe(false);
-    });
-
-    it('should still register user even if email sending fails', async () => {
-      // Setup - hacer que el envío de email falle
-      const { createEmailAdapter } = require('@/config/email.adapter');
-      const mockAdapter = createEmailAdapter();
-      mockAdapter.sendEmail.mockResolvedValueOnce(false);
-      
-      const validInviteCode = 'EMAIL-FAIL-CODE';
-      testServer.addInviteCode(validInviteCode, 1);
-
-      const newUser = {
-        username: 'emailfailtest',
-        email: 'emailfail@example.com',
-        password: 'password123',
-        inviteCode: validInviteCode
-      };
-
-      // Act
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(newUser)
-        .expect(201);
-
-      // Assert - el registro debe ser exitoso aunque el email falle
-      expect(response.body.data.emailVerificationSent).toBe(false);
-      expect(response.body.data.user.isEmailVerified).toBe(false);
-      expect(response.body.success).toBe(true);
-    });
+    // Assert - El registro debe ser exitoso y reportar email enviado
+    expect(response.body.data.emailVerificationSent).toBe(true);
+    expect(response.body.data.user.isEmailVerified).toBe(false);
   });
+
+  it('should still register user even if email sending fails', async () => {
+    // ✅ ARREGLADO: Hacer que el envío de email falle
+    testServer.makeEmailSendingFail();
+    
+    const validInviteCode = 'EMAIL-FAIL-CODE';
+    testServer.addInviteCode(validInviteCode, 1);
+
+    const newUser = {
+      username: 'emailfailtest',
+      email: 'emailfail@example.com',
+      password: 'password123',
+      inviteCode: validInviteCode
+    };
+
+    // Act
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send(newUser)
+      .expect(201);
+
+    // Assert - el registro debe ser exitoso aunque el email falle
+    expect(response.body.data.emailVerificationSent).toBe(false);
+    expect(response.body.data.user.isEmailVerified).toBe(false);
+    expect(response.body.success).toBe(true);
+    
+    // ✅ CLEANUP: Restaurar el éxito del email para otros tests
+    testServer.makeEmailSendingSucceed();
+  });
+});
 });
