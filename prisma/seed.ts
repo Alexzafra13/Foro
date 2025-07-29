@@ -370,7 +370,10 @@ async function main() {
         // ✅ Usuario admin - VERIFICADO
         await prisma.user.upsert({
           where: { email: 'admin@foro.local' },
-          update: {},
+          update: {
+            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
+            emailVerifiedAt: verificationDate,
+          },
           create: {
             username: 'admin',
             email: 'admin@foro.local',
@@ -385,7 +388,10 @@ async function main() {
         // ✅ Usuario moderador - VERIFICADO
         await prisma.user.upsert({
           where: { email: 'mod@foro.local' },
-          update: {},
+          update: {
+            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
+            emailVerifiedAt: verificationDate,
+          },
           create: {
             username: 'moderador',
             email: 'mod@foro.local',
@@ -397,25 +403,28 @@ async function main() {
           },
         });
 
-        // ✅ Usuario normal - NO VERIFICADO (para testing)
+        // ✅ Usuario normal - AHORA TAMBIÉN VERIFICADO EN DEVELOPMENT
         await prisma.user.upsert({
           where: { email: 'user@foro.local' },
-          update: {},
+          update: {
+            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
+            emailVerifiedAt: verificationDate,
+          },
           create: {
             username: 'usuario_prueba',
             email: 'user@foro.local',
             passwordHash: correctPasswordHash,
             roleId: userRole.id,
             reputation: 100,
-            isEmailVerified: false,       // ✅ Usuario normal no verificado
-            emailVerifiedAt: null,        // ✅ Sin fecha de verificación
+            isEmailVerified: true,        // ✅ Usuario normal TAMBIÉN verificado
+            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
           },
         });
 
         console.log('✅ Usuarios de desarrollo creados:');
         console.log('   • admin@foro.local (password: admin123) - ✅ VERIFICADO');
         console.log('   • mod@foro.local (password: admin123) - ✅ VERIFICADO');
-        console.log('   • user@foro.local (password: admin123) - ❌ NO VERIFICADO');
+        console.log('   • user@foro.local (password: admin123) - ✅ VERIFICADO');
       }
     }
 

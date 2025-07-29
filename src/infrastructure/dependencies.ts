@@ -5,12 +5,14 @@ import { PrismaUserDatasource } from './datasources/prisma-user.datasource';
 import { PrismaPostDatasource } from './datasources/prisma-post.datasource';
 import { PrismaInviteCodeDatasource } from './datasources/prisma-invite-code.datasource';
 import { PrismaEmailVerificationTokenDatasource } from './datasources/prisma-email-verification-token.datasource';
+import { PrismaCommentDatasource } from './datasources/prisma-comment.datasource';
 
 // Repositories
 import { UserRepositoryImpl } from './repositories/user.repository.impl';
 import { PostRepositoryImpl } from './repositories/post.repository.impl';
 import { InviteCodeRepositoryImpl } from './repositories/invite-code.repository.impl';
 import { EmailVerificationTokenRepositoryImpl } from './repositories/email-verification-token.repository.impl';
+import { CommentRepositoryImpl } from './repositories/comment.repository.impl';
 
 // Use Cases - Auth
 import { RegisterUser } from '../domain/use-cases/auth/register-user.use-case';
@@ -22,6 +24,10 @@ import { GetPosts } from '../domain/use-cases/posts/get-posts.use-case';
 import { GetPostDetail } from '../domain/use-cases/posts/get-post-detail.use-case';
 import { UpdatePost } from '../domain/use-cases/posts/update-post.use-case';
 import { DeletePost } from '../domain/use-cases/posts/delete-post.use-case';
+
+// Use Cases - Comments
+import { CreateComment } from '../domain/use-cases/comments/create-comment.use-case';
+import { GetComments } from '../domain/use-cases/comments/get-comments.use-case';
 
 // Use Cases - Invites
 import { GenerateInviteCode } from '../domain/use-cases/invites/generate-invite-code.use-case';
@@ -36,6 +42,7 @@ import { AuthController } from '../presentation/controllers/auth.controller';
 import { PostController } from '../presentation/controllers/post.controller';
 import { InviteController } from '../presentation/controllers/invite.controller';
 import { EmailVerificationController } from '../presentation/controllers/email-verification.controller';
+import { CommentController } from '../presentation/controllers/comment.controller';
 
 // Email Adapter
 import { createEmailAdapter } from '../config/email.adapter';
@@ -50,12 +57,14 @@ export class Dependencies {
     const postDatasource = new PrismaPostDatasource(prisma);
     const inviteCodeDatasource = new PrismaInviteCodeDatasource(prisma);
     const emailVerificationTokenDatasource = new PrismaEmailVerificationTokenDatasource(prisma);
+    const commentDatasource = new PrismaCommentDatasource(prisma);
     
     // Repositories
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
     const inviteCodeRepository = new InviteCodeRepositoryImpl(inviteCodeDatasource);
     const emailVerificationTokenRepository = new EmailVerificationTokenRepositoryImpl(emailVerificationTokenDatasource);
+    const commentRepository = new CommentRepositoryImpl(commentDatasource);
     
     // Email Adapter
     const emailAdapter = createEmailAdapter();
@@ -79,6 +88,10 @@ export class Dependencies {
     const updatePost = new UpdatePost(postRepository, userRepository);
     const deletePost = new DeletePost(postRepository, userRepository);
     
+    // Use Cases - Comments ✅ NUEVO
+    const createComment = new CreateComment(commentRepository, userRepository, postRepository);
+    const getComments = new GetComments(commentRepository, postRepository);
+    
     // Use Cases - Invites
     const generateInviteCode = new GenerateInviteCode(inviteCodeRepository, userRepository);
     const validateInviteCode = new ValidateInviteCode(inviteCodeRepository);
@@ -94,6 +107,7 @@ export class Dependencies {
     );
     const inviteController = new InviteController(generateInviteCode, validateInviteCode);
     const emailVerificationController = new EmailVerificationController(verifyEmail, sendVerificationEmail);
+    const commentController = new CommentController(createComment, getComments); 
     
     return {
       prisma,
@@ -102,6 +116,7 @@ export class Dependencies {
         postController,
         inviteController,
         emailVerificationController,
+        commentController,
       },
     };
   }

@@ -1,10 +1,10 @@
-// src/presentation/server.ts
 import express, { Application } from "express";
-import { AuthRoutes } from "../presentation/routes/auth.routes";
+import { AuthRoutes } from "./routes/auth.routes";
 import { UserRoutes } from "./routes/user.routes";
 import { PostRoutes } from "./routes/post.routes";
 import { InviteRoutes } from "./routes/invite.routes";
 import { EmailVerificationRoutes } from "./routes/email-verification.routes";
+import { CommentRoutes } from "./routes/comment.routes";
 
 export class Server {
   private app: Application;
@@ -28,9 +28,14 @@ export class Server {
         status: "OK",
         timestamp: new Date().toISOString(),
         service: "Forum API",
+        version: "1.0.0"
       });
     });
 
+    // ========================================
+    // RUTAS DE AUTENTICACIÓN Y USUARIOS
+    // ========================================
+    
     // Rutas de autenticación (incluye registro con invite code)
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
     
@@ -39,9 +44,20 @@ export class Server {
     
     // Rutas de usuario (protegidas)
     this.app.use("/api/users", await UserRoutes.getRoutes());
+    
+    // ========================================
+    // RUTAS DE CONTENIDO
+    // ========================================
 
     // Rutas de posts (algunas protegidas)
     this.app.use("/api/posts", await PostRoutes.getRoutes());
+    
+    // Rutas de comentarios ✅ NUEVO
+    this.app.use("/api", await CommentRoutes.getRoutes());
+    
+    // ========================================
+    // RUTAS DE ADMINISTRACIÓN
+    // ========================================
     
     // Rutas de códigos de invitación
     this.app.use("/api/invites", await InviteRoutes.getRoutes());
@@ -53,10 +69,14 @@ export class Server {
     this.app.listen(this.port, () => {
       console.log(`🚀 Server running on port ${this.port}`);
       console.log(`📡 Health check: http://localhost:${this.port}/health`);
-      console.log(`🔗 Auth API: http://localhost:${this.port}/api/auth`);
-      console.log(`📧 Email Verification: http://localhost:${this.port}/api/auth/verify-email`);
-      console.log(`📝 Posts API: http://localhost:${this.port}/api/posts`);
-      console.log(`🎫 Invites API: http://localhost:${this.port}/api/invites`);
+      console.log(`\n🔗 Available APIs:`);
+      console.log(`   🔐 Auth: http://localhost:${this.port}/api/auth`);
+      console.log(`   📧 Email Verification: http://localhost:${this.port}/api/auth/verify-email`);
+      console.log(`   👥 Users: http://localhost:${this.port}/api/users`);
+      console.log(`   📝 Posts: http://localhost:${this.port}/api/posts`);
+      console.log(`   💬 Comments: http://localhost:${this.port}/api/posts/:postId/comments`); // ✅ NUEVO
+      console.log(`   🎫 Invites: http://localhost:${this.port}/api/invites`);
+      console.log(`\n🎯 Ready for testing!`);
     });
   }
 }
