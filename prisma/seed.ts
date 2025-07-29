@@ -1,4 +1,4 @@
-// prisma/seed.ts - CORREGIDO
+// prisma/seed.ts - CORREGIDO CON EMAIL VERIFICATION
 import { PrismaClient } from '@prisma/client';
 import { genSaltSync, hashSync } from 'bcryptjs';
 
@@ -349,7 +349,7 @@ async function main() {
     console.log('✅ Canales organizados creados correctamente');
 
     // =========================================
-    // 5. USUARIOS DE DESARROLLO
+    // 5. USUARIOS DE DESARROLLO CON EMAIL VERIFICATION
     // =========================================
     
     if (process.env.NODE_ENV === 'development') {
@@ -363,10 +363,11 @@ async function main() {
         // Generar hash correcto para admin123
         const salt = genSaltSync(12);
         const correctPasswordHash = hashSync('admin123', salt);
+        const verificationDate = new Date();
         
         console.log('🔐 Generando hash correcto para contraseñas...');
         
-        // Usuario admin
+        // ✅ Usuario admin - VERIFICADO
         await prisma.user.upsert({
           where: { email: 'admin@foro.local' },
           update: {},
@@ -376,10 +377,12 @@ async function main() {
             passwordHash: correctPasswordHash,
             roleId: adminRole.id,
             reputation: 1000,
+            isEmailVerified: true,        // ✅ Admin verificado
+            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
           },
         });
 
-        // Usuario moderador
+        // ✅ Usuario moderador - VERIFICADO
         await prisma.user.upsert({
           where: { email: 'mod@foro.local' },
           update: {},
@@ -389,10 +392,12 @@ async function main() {
             passwordHash: correctPasswordHash,
             roleId: moderatorRole.id,
             reputation: 500,
+            isEmailVerified: true,        // ✅ Moderador verificado
+            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
           },
         });
 
-        // Usuario normal
+        // ✅ Usuario normal - NO VERIFICADO (para testing)
         await prisma.user.upsert({
           where: { email: 'user@foro.local' },
           update: {},
@@ -402,13 +407,15 @@ async function main() {
             passwordHash: correctPasswordHash,
             roleId: userRole.id,
             reputation: 100,
+            isEmailVerified: false,       // ✅ Usuario normal no verificado
+            emailVerifiedAt: null,        // ✅ Sin fecha de verificación
           },
         });
 
         console.log('✅ Usuarios de desarrollo creados:');
-        console.log('   • admin@foro.local (password: admin123)');
-        console.log('   • mod@foro.local (password: admin123)');
-        console.log('   • user@foro.local (password: admin123)');
+        console.log('   • admin@foro.local (password: admin123) - ✅ VERIFICADO');
+        console.log('   • mod@foro.local (password: admin123) - ✅ VERIFICADO');
+        console.log('   • user@foro.local (password: admin123) - ❌ NO VERIFICADO');
       }
     }
 
@@ -452,6 +459,8 @@ async function main() {
 • 🎨 **Creatividad**: Arte, música y expresión
 • 🌍 **Varios**: Deportes, viajes, cocina y más
 
+📧 **Importante**: Recuerda verificar tu email para acceder a todas las funciones del foro.
+
 ¡Esperamos que disfrutes tu estancia aquí!`,
             isPinned: true,
           },
@@ -463,7 +472,13 @@ async function main() {
             channelId: generalChannel.id,
             authorId: adminUser.id,
             title: 'Preséntate aquí',
-            content: '¡Nuevos usuarios! Este es el lugar perfecto para presentarse y conocer a la comunidad. Cuéntanos un poco sobre ti, tus intereses y qué te trae por aquí. ¡Bienvenidos!',
+            content: `¡Nuevos usuarios! Este es el lugar perfecto para presentarse y conocer a la comunidad. 
+
+Cuéntanos un poco sobre ti, tus intereses y qué te trae por aquí.
+
+📧 **Nota**: Si acabas de registrarte, revisa tu email para verificar tu cuenta.
+
+¡Bienvenidos!`,
             isPinned: true,
           },
         });
@@ -494,9 +509,13 @@ async function main() {
     
     if (process.env.NODE_ENV === 'development') {
       console.log('\n🔑 ACCESOS DE DESARROLLO:');
-      console.log('   Admin: admin@foro.local / admin123');
-      console.log('   Mod:   mod@foro.local / admin123');  
-      console.log('   User:  user@foro.local / admin123');
+      console.log('   Admin: admin@foro.local / admin123 (✅ Verificado)');
+      console.log('   Mod:   mod@foro.local / admin123 (✅ Verificado)');  
+      console.log('   User:  user@foro.local / admin123 (❌ No verificado)');
+      console.log('\n📧 EMAIL VERIFICATION:');
+      console.log('   • Admin y Moderador están pre-verificados');
+      console.log('   • Usuario normal necesita verificación');
+      console.log('   • Nuevos registros recibirán email de verificación');
       console.log('\n💡 Tip: Usa "npx prisma studio" para ver los datos');
     }
 
