@@ -19,8 +19,13 @@ export class TestServer {
   private mockInviteCodeRepository!: jest.Mocked<InviteCodeRepository>;
   private mockEmailVerificationTokenRepository!: jest.Mocked<EmailVerificationTokenRepository>;
   private mockEmailAdapter!: jest.Mocked<EmailAdapter>;
+  private mockPostRepository!: jest.Mocked<any>;
+  private mockCommentRepository!: jest.Mocked<any>;
+  
   private users: Map<string, UserEntity> = new Map();
   private inviteCodes: Map<string, InviteCodeEntity> = new Map();
+  private posts: Map<number, any> = new Map();
+  private comments: Map<number, any> = new Map();
 
   constructor() {
     this.app = express();
@@ -103,7 +108,7 @@ export class TestServer {
       getStats: jest.fn(),
     } as jest.Mocked<InviteCodeRepository>;
 
-    // ✅ ARREGLADO: Mock del repositorio de tokens de verificación de email
+    // Mock del repositorio de tokens de verificación de email
     this.mockEmailVerificationTokenRepository = {
       create: jest.fn().mockResolvedValue({
         id: 1,
@@ -120,10 +125,149 @@ export class TestServer {
       deleteByUserId: jest.fn().mockResolvedValue(0),
     } as jest.Mocked<EmailVerificationTokenRepository>;
 
-    // ✅ ARREGLADO: Mock del adaptador de email que siempre retorna éxito
+    // Mock del adaptador de email
     this.mockEmailAdapter = {
-      sendEmail: jest.fn().mockResolvedValue(true), // ✅ Siempre exitoso
+      sendEmail: jest.fn().mockResolvedValue(true),
     } as jest.Mocked<EmailAdapter>;
+
+    // Mock del repositorio de posts
+    this.mockPostRepository = {
+      create: jest.fn(),
+      findById: jest.fn().mockImplementation(async (id) => {
+        const post = this.posts.get(id);
+        return post || null;
+      }),
+      findMany: jest.fn(),
+      updateById: jest.fn(),
+      deleteById: jest.fn(),
+      incrementViews: jest.fn(),
+    } as any;
+
+    // Mock del repositorio de comentarios
+    this.mockCommentRepository = {
+      create: jest.fn().mockImplementation(async (dto) => {
+        const id = this.comments.size + 1;
+        const comment = {
+          id,
+          postId: dto.postId,
+          authorId: dto.authorId,
+          parentCommentId: dto.parentCommentId || null,
+          content: dto.content,
+          isEdited: false,
+          editedAt: null,
+          isDeleted: false,
+          deletedAt: null,
+          deletedBy: null,
+          deletionReason: null,
+          isHidden: false,
+          createdAt: new Date(),
+          updatedAt: null,
+          author: {
+            id: dto.authorId,
+            username: 'testuser',
+            reputation: 100,
+            role: { id: 3, name: 'user' }
+          },
+          _count: {
+            votes: 0,
+            replies: 0
+          },
+          voteScore: 0,
+          userVote: null,
+          isReply: () => dto.parentCommentId !== null,
+          getDisplayContent: () => dto.content,
+          parentComment: dto.parentCommentId ? {
+            id: dto.parentCommentId,
+            content: 'Parent comment content...',
+            authorUsername: 'parentuser'
+          } : undefined
+        };
+        this.comments.set(id, comment);
+        return comment;
+      }),
+      findById: jest.fn().mockImplementation(async (id) => {
+        const comment = this.comments.get(id);
+        if (!comment) return null;
+        
+        return {
+          ...comment,
+          isVisible: () => !comment.isDeleted && !comment.isHidden
+        };
+      }),
+      findByPostId: jest.fn().mockImplementation(async (postId, pagination, userId) => {
+        const comments = Array.from(this.comments.values())
+          .filter(comment => comment.postId === postId && comment.parentCommentId === null)
+          .map(comment => ({
+            ...comment,
+            getDisplayContent: () => comment.content,
+            isReply: () => false
+          }));
+        
+        return {
+          data: comments,
+          pagination: {
+            page: pagination?.page || 1,
+            limit: pagination?.limit || 20,
+            total: comments.length,
+            totalPages: Math.ceil(comments.length / (pagination?.limit || 20)),
+            hasNext: false,
+            hasPrev: false
+          }
+        };
+      }),
+      findReplies: jest.fn().mockImplementation(async (parentCommentId, pagination, userId) => {
+        const replies = Array.from(this.comments.values())
+          .filter(comment => comment.parentCommentId === parentCommentId)
+          .map(comment => ({
+            ...comment,
+            getDisplayContent: () => comment.content,
+            isReply: () => true
+          }));
+        
+        return {
+          data: replies,
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: replies.length,
+            totalPages: Math.ceil(replies.length / 10),
+            hasNext: false,
+            hasPrev: false
+          }
+        };
+      }),
+      findMany: jest.fn().mockImplementation(async (filters, pagination) => {
+        let comments = Array.from(this.comments.values());
+        
+        if (filters?.postId) {
+          comments = comments.filter(comment => comment.postId === filters.postId);
+        }
+        
+        return {
+          data: comments,
+          pagination: {
+            page: pagination?.page || 1,
+            limit: pagination?.limit || 20,
+            total: comments.length,
+            totalPages: Math.ceil(comments.length / (pagination?.limit || 20)),
+            hasNext: false,
+            hasPrev: false
+          }
+        };
+      }),
+      getCommentStats: jest.fn().mockImplementation(async (commentId) => {
+        const comment = this.comments.get(commentId);
+        return {
+          voteScore: comment?.voteScore || 0,
+          upvotes: Math.max(0, comment?.voteScore || 0),
+          downvotes: Math.max(0, -(comment?.voteScore || 0)),
+          repliesCount: Array.from(this.comments.values())
+            .filter(c => c.parentCommentId === commentId).length
+        };
+      }),
+      updateById: jest.fn(),
+      deleteById: jest.fn(),
+    } as any;
   }
 
   async getApp(): Promise<Application> {
@@ -136,17 +280,13 @@ export class TestServer {
       res.json({ status: 'OK' });
     });
 
-    // ✅ ARREGLADO: Crear instancias con mocks que funcionen correctamente
-    
-    // 1. Crear SendVerificationEmail con mocks que retornen éxito
+    // ===== CREACIÓN DE USE CASES CON MOCKS =====
     const sendVerificationEmail = new SendVerificationEmail(
       this.mockEmailVerificationTokenRepository,
       this.mockUserRepository,
       this.mockEmailAdapter
     );
     
-    // 2. Mockear el execute de SendVerificationEmail para que sea exitoso por defecto
-    // pero que pueda ser sobrescrito en tests específicos
     const sendEmailSpy = jest.spyOn(sendVerificationEmail, 'execute').mockResolvedValue({
       success: true,
       message: 'Verification email sent successfully',
@@ -154,13 +294,12 @@ export class TestServer {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
     });
     
-    // 3. Exponer el spy para que los tests puedan modificarlo
     (this.app as any).sendEmailSpy = sendEmailSpy;
     
     const registerUser = new RegisterUser(
       this.mockUserRepository, 
       this.mockInviteCodeRepository,
-      sendVerificationEmail // ✅ Usar el mock que funciona
+      sendVerificationEmail
     );
     
     const loginUser = new LoginUser(this.mockUserRepository);
@@ -170,12 +309,12 @@ export class TestServer {
     const authController = new AuthController(registerUser, loginUser);
     const inviteController = new InviteController(generateInviteCode, validateInviteCode);
 
-    // Rutas de auth
+    // ===== RUTAS DE AUTENTICACIÓN =====
     const authRouter = express.Router();
     authRouter.post('/register', authController.register.bind(authController));
     authRouter.post('/login', authController.login.bind(authController));
     
-    // ✅ MEJORADO: Rutas de email verification
+    // Rutas de email verification
     authRouter.post('/verify-email', async (req, res) => {
       try {
         const { token } = req.body;
@@ -188,7 +327,6 @@ export class TestServer {
           });
         }
 
-        // ✅ MEJORADO: Validar formato de token
         if (token.length !== 64 || !/^[a-f0-9]+$/i.test(token)) {
           return res.status(400).json({
             success: false,
@@ -196,7 +334,6 @@ export class TestServer {
           });
         }
 
-        // ✅ MEJORADO: Simular token no encontrado
         if (token === 'b'.repeat(64)) {
           return res.status(404).json({
             success: false,
@@ -204,7 +341,6 @@ export class TestServer {
           });
         }
 
-        // Mock successful verification para tokens válidos
         res.json({
           success: true,
           data: {
@@ -225,7 +361,6 @@ export class TestServer {
     });
 
     authRouter.post('/resend-verification', (req, res, next) => {
-      // Mock auth middleware
       const authorization = req.headers.authorization;
       if (!authorization || !authorization.startsWith('Bearer ')) {
         return res.status(401).json({
@@ -242,7 +377,6 @@ export class TestServer {
         });
       }
 
-      // ✅ ASEGURAR: Simular llamada al servicio de email
       if (this.mockEmailAdapter && this.mockEmailAdapter.sendEmail) {
         this.mockEmailAdapter.sendEmail({
           to: 'test@example.com',
@@ -252,7 +386,6 @@ export class TestServer {
         });
       }
 
-      // Mock successful resend
       res.json({
         success: true,
         message: 'Verification email sent successfully. Please check your inbox.',
@@ -263,7 +396,6 @@ export class TestServer {
     });
 
     authRouter.get('/verification-status', (req, res) => {
-      // Mock auth middleware
       const authorization = req.headers.authorization;
       if (!authorization || !authorization.startsWith('Bearer ')) {
         return res.status(401).json({
@@ -291,10 +423,9 @@ export class TestServer {
 
     this.app.use('/api/auth', authRouter);
 
-    // Rutas de invitación
+    // ===== RUTAS DE INVITACIÓN =====
     const inviteRouter = express.Router();
     inviteRouter.post('/generate', (req, res, next) => {
-      // Mock de autenticación para admin
       const authorization = req.headers.authorization;
       if (authorization === 'Bearer admin.token') {
         req.user = { userId: 1, email: 'admin@test.com' };
@@ -308,7 +439,6 @@ export class TestServer {
       }
       next();
     }, (req, res, next) => {
-      // Mock de verificación de permisos
       if (req.user?.userId !== 1) {
         return res.status(401).json({
           success: false,
@@ -320,6 +450,318 @@ export class TestServer {
     
     inviteRouter.post('/validate', inviteController.validate.bind(inviteController));
     this.app.use('/api/invites', inviteRouter);
+
+    // ===== RUTAS DE COMENTARIOS =====
+    
+    // POST /api/posts/:postId/comments
+    this.app.post('/api/posts/:postId/comments', (req, res, next) => {
+      const authorization = req.headers.authorization;
+      if (!authorization || !authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authorization token is required'
+        });
+      }
+
+      const token = authorization.split(' ')[1];
+      if (!token || token === 'invalid.token') {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid or expired token'
+        });
+      }
+
+      if (token === 'unverified.user.token') {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions for this action'
+        });
+      }
+
+      req.user = { userId: 1, email: 'test@example.com' };
+      next();
+    }, async (req, res) => {
+      try {
+        const postId = parseInt(req.params.postId);
+        const { content, parentCommentId } = req.body;
+        const authorId = req.user?.userId!;
+
+        // Validaciones básicas
+        if (!content || content.trim().length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Content is required'
+          });
+        }
+
+        if (content.trim().length < 3) {
+          return res.status(400).json({
+            success: false,
+            error: 'Content must be at least 3 characters long'
+          });
+        }
+
+        if (content.trim().length > 2000) {
+          return res.status(400).json({
+            success: false,
+            error: 'Content must not exceed 2000 characters'
+          });
+        }
+
+        // Verificar que el post existe
+        const post = this.posts.get(postId);
+        if (!post) {
+          return res.status(404).json({
+            success: false,
+            error: `Post with id ${postId} not found`
+          });
+        }
+
+        // Verificar si el post está bloqueado
+        if (post.isLocked) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot perform action on locked post'
+          });
+        }
+
+        // Si es una respuesta, verificar el comentario padre
+        if (parentCommentId) {
+          const parentComment = this.comments.get(parseInt(parentCommentId));
+          if (!parentComment) {
+            return res.status(400).json({
+              success: false,
+              error: 'Parent comment must be a valid existing comment'
+            });
+          }
+
+          if (parentComment.postId !== postId) {
+            return res.status(400).json({
+              success: false,
+              error: 'Parent comment must be a valid comment from the same post'
+            });
+          }
+
+          // Verificar profundidad máxima
+          if (parentComment.parentCommentId !== null) {
+            return res.status(400).json({
+              success: false,
+              error: 'Comment must be a valid maximum nesting depth exceeded'
+            });
+          }
+        }
+
+        // Crear el comentario
+        const commentId = this.comments.size + 1;
+        const newComment = {
+          id: commentId,
+          postId,
+          authorId,
+          parentCommentId: parentCommentId ? parseInt(parentCommentId) : null,
+          content: content.trim(),
+          isEdited: false,
+          editedAt: null,
+          isDeleted: false,
+          deletedAt: null,
+          deletedBy: null,
+          deletionReason: null,
+          isHidden: false,
+          createdAt: new Date(),
+          updatedAt: null,
+          author: {
+            id: authorId,
+            username: 'testuser',
+            reputation: 100,
+            role: { id: 3, name: 'user' }
+          },
+          parentComment: parentCommentId ? {
+            id: parseInt(parentCommentId),
+            content: 'Parent comment content...',
+            authorUsername: 'parentuser'
+          } : undefined,
+          stats: {
+            voteScore: 0,
+            repliesCount: 0
+          }
+        };
+
+        this.comments.set(commentId, newComment);
+
+        res.status(201).json({
+          success: true,
+          data: {
+            id: newComment.id,
+            postId: newComment.postId,
+            content: newComment.content,
+            isReply: newComment.parentCommentId !== null,
+            parentCommentId: newComment.parentCommentId,
+            createdAt: newComment.createdAt.toISOString(),
+            author: newComment.author,
+            parentComment: newComment.parentComment,
+            stats: newComment.stats
+          },
+          message: newComment.parentCommentId ? 'Reply created successfully' : 'Comment created successfully'
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error'
+        });
+      }
+    });
+
+    // GET /api/posts/:postId/comments
+    this.app.get('/api/posts/:postId/comments', (req, res, next) => {
+      // Auth opcional
+      const authorization = req.headers.authorization;
+      if (authorization && authorization.startsWith('Bearer ')) {
+        const token = authorization.split(' ')[1];
+        if (token && token !== 'invalid.token') {
+          req.user = { userId: 1, email: 'test@example.com' };
+        }
+      }
+      next();
+    }, async (req, res) => {
+      try {
+        const postId = parseInt(req.params.postId);
+        const {
+          page = '1',
+          limit = '20',
+          sortBy = 'createdAt',
+          sortOrder = 'asc',
+          includeReplies = 'false'
+        } = req.query;
+
+        // Verificar que el post existe
+        const post = this.posts.get(postId);
+        if (!post) {
+          return res.status(404).json({
+            success: false,
+            error: `Post with id ${postId} not found`
+          });
+        }
+
+        // Obtener comentarios del post (solo comentarios raíz)
+        let comments = Array.from(this.comments.values())
+          .filter(comment => comment.postId === postId && comment.parentCommentId === null);
+
+        // Aplicar ordenamiento
+        if (sortBy === 'voteScore') {
+          comments.sort((a, b) => {
+            const order = sortOrder === 'desc' ? -1 : 1;
+            return (b.voteScore - a.voteScore) * order;
+          });
+        } else {
+          comments.sort((a, b) => {
+            const order = sortOrder === 'desc' ? -1 : 1;
+            return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * order;
+          });
+        }
+
+        // Aplicar paginación
+        const pageNum = parseInt(page as string);
+        const limitNum = parseInt(limit as string);
+        const skip = (pageNum - 1) * limitNum;
+        const paginatedComments = comments.slice(skip, skip + limitNum);
+
+        // Formatear comentarios
+        const formattedComments = await Promise.all(
+          paginatedComments.map(async (comment) => {
+            let replies: any[] = [];
+            
+            // Si se solicitan respuestas, cargarlas
+            if (includeReplies === 'true') {
+              replies = Array.from(this.comments.values())
+                .filter(c => c.parentCommentId === comment.id)
+                .map(reply => ({
+                  id: reply.id,
+                  postId: reply.postId,
+                  content: reply.content,
+                  isEdited: reply.isEdited,
+                  editedAt: reply.editedAt,
+                  createdAt: reply.createdAt.toISOString(),
+                  isReply: true,
+                  parentCommentId: reply.parentCommentId,
+                  author: reply.author || null,
+                  stats: {
+                    voteScore: reply.voteScore || 0,
+                    repliesCount: 0,
+                    upvotes: Math.max(0, reply.voteScore || 0),
+                    downvotes: Math.max(0, -(reply.voteScore || 0))
+                  },
+                  userVote: null
+                }));
+            }
+
+            const repliesCount = Array.from(this.comments.values())
+              .filter(c => c.parentCommentId === comment.id).length;
+
+            const formattedComment: any = {
+              id: comment.id,
+              postId: comment.postId,
+              content: comment.content,
+              isEdited: comment.isEdited,
+              editedAt: comment.editedAt,
+              createdAt: comment.createdAt.toISOString(),
+              isReply: false,
+              parentCommentId: comment.parentCommentId,
+              author: comment.author || null,
+              stats: {
+                voteScore: comment.voteScore || 0,
+                repliesCount,
+                upvotes: Math.max(0, comment.voteScore || 0),
+                downvotes: Math.max(0, -(comment.voteScore || 0))
+              },
+              userVote: null
+            };
+
+            if (includeReplies === 'true' && replies.length > 0) {
+              formattedComment.replies = replies;
+            }
+
+            return formattedComment;
+          })
+        );
+
+        // Obtener total de comentarios del post
+        const totalComments = Array.from(this.comments.values())
+          .filter(comment => comment.postId === postId).length;
+
+        res.json({
+          success: true,
+          data: formattedComments,
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: comments.length,
+            totalPages: Math.ceil(comments.length / limitNum),
+            hasNext: pageNum * limitNum < comments.length,
+            hasPrev: pageNum > 1
+          },
+          postInfo: {
+            id: post.id,
+            title: post.title,
+            isLocked: post.isLocked,
+            totalComments
+          },
+          message: `Found ${formattedComments.length} comments`
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error'
+        });
+      }
+    });
+
+    // GET /api/comments/:id/replies
+    this.app.get('/api/comments/:id/replies', async (req, res) => {
+      res.json({
+        success: true,
+        data: [],
+        message: 'Feature coming soon - replies endpoint'
+      });
+    });
 
     // Ruta protegida de prueba
     this.app.get('/api/users/profile', (req, res) => {
@@ -352,7 +794,8 @@ export class TestServer {
     });
   }
 
-  // Métodos para manipular datos en tests
+  // ===== MÉTODOS PARA MANIPULAR DATOS EN TESTS =====
+  
   clearUsers() {
     this.users.clear();
   }
@@ -361,6 +804,15 @@ export class TestServer {
     this.inviteCodes.clear();
   }
 
+  clearPosts() {
+    this.posts.clear();
+  }
+
+  clearComments() {
+    this.comments.clear();
+  }
+
+  // Métodos para invite codes
   addInviteCode(code: string, createdBy: number, createdAt?: Date) {
     const inviteCode = new InviteCodeEntity(
       code,
@@ -390,7 +842,80 @@ export class TestServer {
     return this.inviteCodes.get(code);
   }
 
-  // ✅ NUEVO: Método para controlar el mock de email desde tests
+  // Métodos para posts
+  addPost(postData: {
+    id: number;
+    title: string;
+    content: string;
+    isLocked: boolean;
+    authorId?: number;
+  }): number {
+    const post = {
+      id: postData.id,
+      title: postData.title,
+      content: postData.content,
+      isLocked: postData.isLocked,
+      authorId: postData.authorId || 1,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.posts.set(postData.id, post);
+    return postData.id;
+  }
+
+  getPost(id: number): any {
+    return this.posts.get(id);
+  }
+
+  // Métodos para comentarios
+  addComment(commentData: {
+    id: number;
+    postId: number;
+    content: string;
+    authorId: number;
+    parentCommentId?: number;
+    voteScore?: number;
+  }): number {
+    const comment = {
+      id: commentData.id,
+      postId: commentData.postId,
+      authorId: commentData.authorId,
+      parentCommentId: commentData.parentCommentId || null,
+      content: commentData.content,
+      isEdited: false,
+      editedAt: null,
+      isDeleted: false,
+      deletedAt: null,
+      deletedBy: null,
+      deletionReason: null,
+      isHidden: false,
+      createdAt: new Date(),
+      updatedAt: null,
+      voteScore: commentData.voteScore || 0,
+      author: {
+        id: commentData.authorId,
+        username: 'testuser',
+        reputation: 100,
+        role: { id: 3, name: 'user' }
+      },
+      _count: {
+        votes: 0,
+        replies: 0
+      }
+    };
+    this.comments.set(commentData.id, comment);
+    return commentData.id;
+  }
+
+  getComment(id: number): any {
+    return this.comments.get(id);
+  }
+
+  getCommentsByPostId(postId: number): any[] {
+    return Array.from(this.comments.values()).filter(comment => comment.postId === postId);
+  }
+
+  // Métodos para controlar el mock de email desde tests
   makeEmailSendingFail() {
     const sendEmailSpy = (this.app as any).sendEmailSpy;
     if (sendEmailSpy) {
@@ -398,7 +923,6 @@ export class TestServer {
     }
   }
 
-  // ✅ NUEVO: Método para restaurar el éxito del email
   makeEmailSendingSucceed() {
     const sendEmailSpy = (this.app as any).sendEmailSpy;
     if (sendEmailSpy) {
