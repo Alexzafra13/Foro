@@ -7,7 +7,7 @@ export class CommentEntity {
     public content: string,
     public isEdited: boolean,
     public editedAt: Date | null,
-    public editCount: number,                 
+    public editCount: number,                 // ✅ AGREGADO ESTE CAMPO
     public isDeleted: boolean,
     public deletedAt: Date | null,
     public deletedBy: number | null,
@@ -51,7 +51,7 @@ export class CommentEntity {
 
     return new CommentEntity(
       id, postId, authorId, parentCommentId, content, 
-      isEdited || false, editedAt, editCount || 0,                    // ← NUEVO
+      isEdited || false, editedAt, editCount || 0,                    // ✅ CAMPO AGREGADO
       isDeleted || false, deletedAt, deletedBy, deletionReason, isHidden || false,
       createdAt, updatedAt, author, parentComment, replies, _count, voteScore, userVote
     );
@@ -93,7 +93,7 @@ export class CommentEntity {
   markAsEdited(): void {
     this.isEdited = true;
     this.editedAt = new Date();
-    this.editCount = (this.editCount || 0) + 1;     // ← NUEVO
+    this.editCount = (this.editCount || 0) + 1;     // ✅ USANDO EL CAMPO
     this.updatedAt = new Date();
   }
 
@@ -123,7 +123,7 @@ export class CommentEntity {
     return {
       isEdited: this.isEdited,
       editedAt: this.editedAt,
-      editCount: this.editCount || 0,
+      editCount: this.editCount || 0,                // ✅ USANDO EL CAMPO
       canStillEdit: this.canStillBeEdited(),
       minutesSinceCreation
     };

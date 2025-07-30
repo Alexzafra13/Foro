@@ -1,10 +1,13 @@
+
+import { Request, Response } from 'express';
 import { RequestPasswordReset } from '../../domain/use-cases/auth/request-password-reset.use-case';
 import { ResetPassword } from '../../domain/use-cases/auth/reset-password.use-case';
+import { CustomError, DomainError } from '../../shared/errors';
 
 export class PasswordResetController {
   constructor(
     private readonly requestPasswordReset: RequestPasswordReset,
-    private readonly resetPassword: ResetPassword
+    private readonly resetPasswordUseCase: ResetPassword
   ) {}
 
   // POST /api/auth/request-password-reset
@@ -55,7 +58,7 @@ export class PasswordResetController {
         });
       }
 
-      const result = await this.resetPassword.execute({
+      const result = await this.resetPasswordUseCase.execute({
         token,
         newPassword,
         confirmPassword,
@@ -82,7 +85,7 @@ export class PasswordResetController {
 
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);
-    
+
     if (error instanceof DomainError) {
       return res.status(error.statusCode).json({
         success: false,
@@ -90,7 +93,7 @@ export class PasswordResetController {
         code: error.name
       });
     }
-    
+
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({
         success: false,
@@ -98,7 +101,7 @@ export class PasswordResetController {
         code: error.name
       });
     }
-    
+
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

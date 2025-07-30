@@ -1,4 +1,4 @@
-// src/presentation/server.ts - VERSIÓN FINAL LIMPIA
+// src/presentation/server.ts - ACTUALIZADO CON TODAS LAS RUTAS
 import express, { Application } from "express";
 import cors from "cors";
 
@@ -56,21 +56,33 @@ export class Server {
     // Cargar todas las rutas
     const { AuthRoutes } = await import("./routes/auth.routes");
     const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
+    const { PasswordResetRoutes } = await import("./routes/password-reset.routes"); // ✅ AGREGADO
     const { UserRoutes } = await import("./routes/user.routes");
+    const { ProfileRoutes } = await import("./routes/profile.routes"); // ✅ AGREGADO
     const { PostRoutes } = await import("./routes/post.routes");
     const { CommentRoutes } = await import("./routes/comment.routes");
     const { CategoryRoutes } = await import("./routes/category.routes");
     const { ChannelRoutes } = await import("./routes/channel.routes");
     const { InviteRoutes } = await import("./routes/invite.routes");
 
-    // Registrar rutas
+    // Registrar rutas de autenticación
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
     this.app.use("/api/auth", await EmailVerificationRoutes.getRoutes());
+    this.app.use("/api/auth", await PasswordResetRoutes.getRoutes()); // ✅ AGREGADO
+
+    // Registrar rutas de usuarios
     this.app.use("/api/users", await UserRoutes.getRoutes());
+    this.app.use("/api/users", await ProfileRoutes.getRoutes()); // ✅ AGREGADO
+
+    // Registrar rutas de contenido
     this.app.use("/api/posts", await PostRoutes.getRoutes());
     this.app.use("/api", await CommentRoutes.getRoutes());
+    
+    // Registrar rutas de estructura
     this.app.use("/api/categories", await CategoryRoutes.getRoutes());
     this.app.use("/api/channels", await ChannelRoutes.getRoutes());
+    
+    // Registrar rutas de invitaciones
     this.app.use("/api/invites", await InviteRoutes.getRoutes());
 
     // 404 handler
@@ -94,6 +106,14 @@ export class Server {
         if (process.env.NODE_ENV === 'development') {
           console.log(`🌐 CORS enabled for frontend: http://localhost:5173`);
           console.log(`\n🎯 Ready for development!`);
+          console.log(`\n📚 Available endpoints:`);
+          console.log(`   Auth: /api/auth/*`);
+          console.log(`   Users: /api/users/*`);
+          console.log(`   Posts: /api/posts/*`);
+          console.log(`   Comments: /api/posts/:id/comments, /api/comments/*`);
+          console.log(`   Categories: /api/categories`);
+          console.log(`   Channels: /api/channels/*`);
+          console.log(`   Invites: /api/invites/*`);
         }
       });
     } catch (error) {

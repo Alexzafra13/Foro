@@ -209,6 +209,7 @@ model Comment {
   // Control de ediciones
   isEdited Boolean   @default(false) @map("is_edited")
   editedAt DateTime? @map("edited_at")
+  editCount Int      @default(0) @map("edit_count")  // ✅ CAMPO AGREGADO
 
   // Control de eliminación/moderación
   isDeleted      Boolean   @default(false) @map("is_deleted")

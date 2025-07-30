@@ -1,3 +1,4 @@
+// src/presentation/controllers/profile.controller.ts
 import { Request, Response } from 'express';
 import { GetProfile } from '../../domain/use-cases/user/get-profile.use-case';
 import { UpdateProfile } from '../../domain/use-cases/user/update-profile.use-case';
@@ -6,9 +7,9 @@ import { CustomError, DomainError } from '../../shared/errors';
 
 export class ProfileController {
   constructor(
-    private readonly getProfile: GetProfile,
-    private readonly updateProfile: UpdateProfile,
-    private readonly changePassword: ChangePassword
+    private readonly getProfileUseCase: GetProfile,
+    private readonly updateProfileUseCase: UpdateProfile,
+    private readonly changePasswordUseCase: ChangePassword
   ) {}
 
   // GET /api/users/profile
@@ -18,7 +19,7 @@ export class ProfileController {
       const includeSettings = req.query.includeSettings === 'true';
       const includeStats = req.query.includeStats === 'true';
 
-      const profile = await this.getProfile.execute({
+      const profile = await this.getProfileUseCase.execute({
         userId,
         includeSettings,
         includeStats
@@ -41,7 +42,7 @@ export class ProfileController {
       const { username, bio, avatarUrl } = req.body;
       const ipAddress = this.getClientIP(req);
 
-      const result = await this.updateProfile.execute({
+      const result = await this.updateProfileUseCase.execute({
         userId,
         username,
         bio,
@@ -66,7 +67,7 @@ export class ProfileController {
       const { currentPassword, newPassword, confirmPassword } = req.body;
       const ipAddress = this.getClientIP(req);
 
-      const result = await this.changePassword.execute({
+      const result = await this.changePasswordUseCase.execute({
         userId,
         currentPassword,
         newPassword,
@@ -95,7 +96,7 @@ export class ProfileController {
 
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);
-    
+
     if (error instanceof DomainError) {
       return res.status(error.statusCode).json({
         success: false,
@@ -103,7 +104,7 @@ export class ProfileController {
         code: error.name
       });
     }
-    
+
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({
         success: false,
@@ -111,7 +112,7 @@ export class ProfileController {
         code: error.name
       });
     }
-    
+
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

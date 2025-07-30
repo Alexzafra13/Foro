@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { GetUserSettings } from '../../domain/use-cases/settings/update-user-settings.use-case';
-import { UpdateUserSettings } from '../../domain/use-cases/settings/update-user-settings.use-case';
+import { GetUserSettings } from '@/domain/use-cases/user/update-user-settings.use-case'; 
+import { UpdateUserSettings } from '@/domain/use-cases/user/update-user-settings.use-case'; 
+import { CustomError, DomainError } from '../../shared/errors';
 
 export class SettingsController {
   constructor(

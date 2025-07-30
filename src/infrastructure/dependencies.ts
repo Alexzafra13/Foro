@@ -1,4 +1,4 @@
-// src/infrastructure/dependencies.ts - ACTUALIZADO CON SISTEMA DE PERFIL
+// src/infrastructure/dependencies.ts - CORRIGIDO
 import { PrismaClient } from "@prisma/client";
 
 // Datasources existentes
@@ -39,6 +39,8 @@ import { UpdatePost } from "../domain/use-cases/posts/update-post.use-case";
 import { DeletePost } from "../domain/use-cases/posts/delete-post.use-case";
 import { CreateComment } from "../domain/use-cases/comments/create-comment.use-case";
 import { GetComments } from "../domain/use-cases/comments/get-comments.use-case";
+import { UpdateComment } from "../domain/use-cases/comments/update-comment.use-case"; // ✅ AGREGADO
+import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-case"; // ✅ AGREGADO
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
 import { GetChannel } from "@/domain/use-cases/channel/get-channel.use-case";
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
@@ -50,9 +52,9 @@ import { VerifyEmail } from "../domain/use-cases/email/verify-email.use-case";
 import { GetProfile } from "../domain/use-cases/user/get-profile.use-case";
 import { UpdateProfile } from "../domain/use-cases/user/update-profile.use-case";
 import { ChangePassword } from "../domain/use-cases/user/change-password.use-case";
-import { GetUserSettings, UpdateUserSettings } from '@/domain/use-cases/user/update-user-settings.use-case'
+import { GetUserSettings, UpdateUserSettings } from '../domain/use-cases/user/update-user-settings.use-case'
 import { RequestPasswordReset } from "../domain/use-cases/auth/request-password-reset.use-case";
-import { ResetPassword } from "@/domain/use-cases/auth/reset-password.use-case"; 
+import { ResetPassword } from "../domain/use-cases/auth/reset-password.use-case"; 
 
 // Controllers existentes
 import { AuthController } from "../presentation/controllers/auth.controller";
@@ -177,13 +179,24 @@ export class Dependencies {
     const updatePost = new UpdatePost(postRepository, userRepository);
     const deletePost = new DeletePost(postRepository, userRepository);
 
-    // Use Cases - Comments existentes
+    // ✅ Use Cases - Comments CORREGIDOS
     const createComment = new CreateComment(
       commentRepository,
       userRepository,
       postRepository
     );
     const getComments = new GetComments(commentRepository, postRepository);
+    
+    // ✅ NUEVOS USE CASES - COMMENTS
+    const updateComment = new UpdateComment(
+      commentRepository,
+      userRepository
+    );
+    
+    const deleteComment = new DeleteComment(
+      commentRepository,
+      userRepository
+    );
 
     // Use Cases - Categories & Channels existentes
     const getCategories = new GetCategories(
@@ -208,12 +221,15 @@ export class Dependencies {
       updatePost,
       deletePost
     );
+    
+    // ✅ COMMENT CONTROLLER CORREGIDO
     const commentController = new CommentController(
-  createComment, 
-  getComments,
-  null as any, // updateComment - por implementar
-  null as any  // deleteComment - por implementar
-);
+      createComment, 
+      getComments,
+      updateComment, // ✅ YA NO ES NULL
+      deleteComment  // ✅ YA NO ES NULL
+    );
+    
     const inviteController = new InviteController(
       generateInviteCode,
       validateInviteCode
@@ -284,9 +300,11 @@ export class Dependencies {
         updatePost,
         deletePost,
 
-        // Comments existentes
+        // ✅ Comments CORREGIDOS
         createComment,
         getComments,
+        updateComment, // ✅ AGREGADO
+        deleteComment, // ✅ AGREGADO
 
         // Categories & Channels existentes
         getCategories,
@@ -305,7 +323,7 @@ export class Dependencies {
       controllers: {
         authController,
         postController,
-        commentController,
+        commentController, // ✅ YA FUNCIONA COMPLETAMENTE
         inviteController,
         emailVerificationController,
         categoryController,
