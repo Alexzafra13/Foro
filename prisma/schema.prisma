@@ -1,12 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// npx prisma migrate dev --name init
-
-// prisma/schema.prisma - CORREGIDO SIN ERRORES
+// prisma/schema.prisma - VERSIÓN COMPLETA CON SISTEMA DE PERFIL
 
 generator client {
   provider = "prisma-client-js"
@@ -36,12 +28,21 @@ model User {
   username        String    @unique @db.VarChar(32)
   email           String    @unique @db.VarChar(100)
   passwordHash    String    @map("password_hash")
-  avatarUrl       String?   @map("avatar_url")
+  avatarUrl       String?   @map("avatar_url") @db.VarChar(500)
+  bio             String?   @db.Text
   reputation      Int       @default(0)
   roleId          Int       @map("role_id")
   createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
   isEmailVerified Boolean   @default(false) @map("is_email_verified")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  
+  // ✅ NUEVOS CAMPOS PARA ADMINISTRACIÓN
+  lastLoginAt     DateTime? @map("last_login_at")
+  isBanned        Boolean   @default(false) @map("is_banned")
+  bannedAt        DateTime? @map("banned_at")
+  bannedBy        Int?      @map("banned_by")
+  banReason       String?   @map("ban_reason") @db.VarChar(255)
 
   // Relations existentes
   role                    Role                     @relation(fields: [roleId], references: [id], onDelete: Restrict)
@@ -53,12 +54,19 @@ model User {
   inviteCodesUsed         InviteCode[]             @relation("InviteUser")
   emailVerificationTokens EmailVerificationToken[]
 
-  // Nuevas relaciones para comentarios
+  // Relaciones para comentarios
   comments        Comment[]       @relation("CommentAuthor")
   deletedComments Comment[]       @relation("CommentDeletedBy")
   commentVotes    CommentVote[]
   commentReports  CommentReport[] @relation("CommentReporter")
   reviewedReports CommentReport[] @relation("CommentReviewer")
+
+  // ✅ NUEVAS RELACIONES PARA PERFIL Y ADMINISTRACIÓN
+  settings             UserSettings?
+  activityLogs         ActivityLog[]
+  bannedByUser         User?                    @relation("UserBans", fields: [bannedBy], references: [id], onDelete: SetNull)
+  usersBanned          User[]                   @relation("UserBans")
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -75,6 +83,46 @@ model InviteCode {
   user    User? @relation("InviteUser", fields: [usedBy], references: [id], onDelete: SetNull)
 
   @@map("invite_codes")
+}
+
+// ✅ NUEVA TABLA: CONFIGURACIONES DE USUARIO
+model UserSettings {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @unique @map("user_id")
+  theme                 String   @default("system") @db.VarChar(20) // "light", "dark", "system"
+  language              String   @default("es") @db.VarChar(5) // "es", "en", "fr"
+  timezone              String   @default("UTC") @db.VarChar(50)
+  emailNotifications    Boolean  @default(true) @map("email_notifications")
+  postNotifications     Boolean  @default(true) @map("post_notifications")
+  commentNotifications  Boolean  @default(true) @map("comment_notifications")
+  privateProfile        Boolean  @default(false) @map("private_profile")
+  showEmail             Boolean  @default(false) @map("show_email")
+  showLastSeen          Boolean  @default(true) @map("show_last_seen")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// ✅ NUEVA TABLA: LOGS DE ACTIVIDAD
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  action    String   @db.VarChar(50) // "login", "logout", "post_created", "profile_updated"
+  details   Json?    // Información adicional específica de la acción
+  ipAddress String?  @map("ip_address") @db.VarChar(45) // IPv4/IPv6
+  userAgent String?  @map("user_agent") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("activity_logs")
 }
 
 // ========================================
@@ -154,21 +202,20 @@ model Post {
 model Comment {
   id              Int       @id @default(autoincrement())
   postId          Int       @map("post_id")
-  authorId        Int?      @map("author_id") // null si usuario eliminado
-  parentCommentId Int?      @map("parent_comment_id") // Para threading
+  authorId        Int?      @map("author_id")
+  parentCommentId Int?      @map("parent_comment_id")
   content         String
 
   // Control de ediciones
   isEdited Boolean   @default(false) @map("is_edited")
   editedAt DateTime? @map("edited_at")
-  editCount  Int       @default(0) @map("edit_count") 
 
   // Control de eliminación/moderación
   isDeleted      Boolean   @default(false) @map("is_deleted")
   deletedAt      DateTime? @map("deleted_at")
-  deletedBy      Int?      @map("deleted_by") // Moderador que eliminó
-  deletionReason String?   @map("deletion_reason") @db.VarChar(50) // "user_request", "moderation", "spam"
-  isHidden       Boolean   @default(false) @map("is_hidden") // Oculto por moderación
+  deletedBy      Int?      @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.VarChar(50)
+  isHidden       Boolean   @default(false) @map("is_hidden")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @map("updated_at")
@@ -264,7 +311,7 @@ model Notification {
 }
 
 // ========================================
-// EMAIL VERIFICATION
+// EMAIL VERIFICATION & PASSWORD RESET
 // ========================================
 
 model EmailVerificationToken {
@@ -279,4 +326,19 @@ model EmailVerificationToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("email_verification_tokens")
+}
+
+// ✅ NUEVA TABLA: PASSWORD RESET TOKENS
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  usedAt    DateTime? @map("used_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
