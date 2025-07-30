@@ -1,3 +1,6 @@
+// src/infrastructure/datasources/prisma-comment.datasource.ts
+// FIX TEMPORAL: Comentarios sin sistema de votos para resolver error 500
+
 import { PrismaClient } from '@prisma/client';
 import { 
   CommentDatasource, 
@@ -26,19 +29,16 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            votes: true,
             replies: true
           }
         }
       }
     });
 
-    // Calcular voteScore
-    const voteScore = await this.calculateVoteScore(comment.id);
-
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore,
+      voteScore: 0, // Temporal: sin sistema de votos
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -61,7 +61,6 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            votes: true,
             replies: true
           }
         }
@@ -70,16 +69,10 @@ export class PrismaCommentDatasource implements CommentDatasource {
 
     if (!comment) return null;
 
-    // Calcular voteScore y voto del usuario
-    const [voteScore, userVote] = await Promise.all([
-      this.calculateVoteScore(comment.id),
-      userId ? this.getUserVote(comment.id, userId) : null
-    ]);
-
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore,
-      userVote,
+      voteScore: 0, // Temporal: sin sistema de votos
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -93,80 +86,81 @@ export class PrismaCommentDatasource implements CommentDatasource {
     pagination?: CommentPaginationOptions,
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    const page = pagination?.page || 1;
-    const limit = pagination?.limit || 20;
-    const skip = (page - 1) * limit;
+    try {
+      const page = pagination?.page || 1;
+      const limit = pagination?.limit || 20;
+      const skip = (page - 1) * limit;
 
-    // Construir where clause
-    const where = this.buildWhereClause(filters);
+      // Construir where clause
+      const where = this.buildWhereClause(filters);
 
-    // Construir orderBy clause
-    const orderBy = this.buildOrderByClause(pagination);
+      // Construir orderBy clause
+      const orderBy = this.buildOrderByClause(pagination);
 
-    // Ejecutar queries en paralelo
-    const [comments, total] = await Promise.all([
-      this.prisma.comment.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: {
-          author: {
-            include: { role: true }
-          },
-          parentComment: {
-            include: {
-              author: true
-            }
-          },
-          _count: {
-            select: {
-              votes: true,
-              replies: true
+      console.log('🔍 Finding comments with:', { where, orderBy, skip, limit });
+
+      // Ejecutar queries en paralelo
+      const [comments, total] = await Promise.all([
+        this.prisma.comment.findMany({
+          where,
+          orderBy,
+          skip,
+          take: limit,
+          include: {
+            author: {
+              include: { role: true }
+            },
+            parentComment: {
+              include: {
+                author: true
+              }
+            },
+            _count: {
+              select: {
+                replies: true
+              }
             }
           }
-        }
-      }),
-      this.prisma.comment.count({ where })
-    ]);
+        }),
+        this.prisma.comment.count({ where })
+      ]);
 
-    // Procesar comentarios con scores y votos de usuario
-    const commentsWithScores = await Promise.all(
-      comments.map(async (comment) => {
-        const [voteScore, userVote] = await Promise.all([
-          this.calculateVoteScore(comment.id),
-          userId ? this.getUserVote(comment.id, userId) : null
-        ]);
+      console.log(`✅ Found ${comments.length} comments out of ${total} total`);
 
+      // Procesar comentarios sin sistema de votos (temporal)
+      const processedComments = comments.map((comment) => {
         return CommentEntity.fromObject({ 
           ...comment, 
-          voteScore,
-          userVote,
+          voteScore: 0, // Temporal: sin sistema de votos
+          userVote: null,
           parentComment: comment.parentComment ? {
             id: comment.parentComment.id,
             content: comment.parentComment.content.substring(0, 50) + '...',
             authorUsername: comment.parentComment.author?.username || 'Usuario eliminado'
           } : undefined
         });
-      })
-    );
+      });
 
-    // Calcular paginación
-    const totalPages = Math.ceil(total / limit);
-    const hasNext = page < totalPages;
-    const hasPrev = page > 1;
+      // Calcular paginación
+      const totalPages = Math.ceil(total / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
 
-    return {
-      data: commentsWithScores,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext,
-        hasPrev
-      }
-    };
+      return {
+        data: processedComments,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext,
+          hasPrev
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error in findMany comments:', error);
+      throw new Error(`Failed to fetch comments: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity> {
@@ -184,18 +178,16 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            votes: true,
             replies: true
           }
         }
       }
     });
 
-    const voteScore = await this.calculateVoteScore(comment.id);
-
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore,
+      voteScore: 0, // Temporal: sin sistema de votos
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -218,7 +210,6 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            votes: true,
             replies: true
           }
         }
@@ -228,6 +219,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return CommentEntity.fromObject({ 
       ...comment, 
       voteScore: 0,
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -241,6 +233,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
     pagination?: CommentPaginationOptions,
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
+    console.log(`🔍 Finding comments for post ${postId}`);
     return this.findMany(
       { postId, parentCommentId: null }, // Solo comentarios raíz
       pagination,
@@ -266,36 +259,26 @@ export class PrismaCommentDatasource implements CommentDatasource {
     downvotes: number;
     repliesCount: number;
   }> {
-    const [voteStats, repliesCount] = await Promise.all([
-      this.prisma.commentVote.groupBy({
-        by: ['voteType'],
-        where: { commentId },
-        _count: { voteType: true }
-      }),
-      this.prisma.comment.count({
+    try {
+      const repliesCount = await this.prisma.comment.count({
         where: { parentCommentId: commentId, isDeleted: false }
-      })
-    ]);
+      });
 
-    let upvotes = 0;
-    let downvotes = 0;
-
-    voteStats.forEach(stat => {
-      if (stat.voteType === 1) {
-        upvotes = stat._count.voteType;
-      } else if (stat.voteType === -1) {
-        downvotes = stat._count.voteType;
-      }
-    });
-
-    const voteScore = upvotes - downvotes;
-
-    return {
-      voteScore,
-      upvotes,
-      downvotes,
-      repliesCount
-    };
+      return {
+        voteScore: 0, // Temporal: sin sistema de votos
+        upvotes: 0,
+        downvotes: 0,
+        repliesCount
+      };
+    } catch (error) {
+      console.error(`Error getting comment stats for ${commentId}:`, error);
+      return {
+        voteScore: 0,
+        upvotes: 0,
+        downvotes: 0,
+        repliesCount: 0
+      };
+    }
   }
 
   // Métodos privados auxiliares
@@ -337,7 +320,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
 
   private buildOrderByClause(pagination?: CommentPaginationOptions) {
     if (!pagination?.sortBy) {
-      // Por defecto: ordenar por fecha de creación
+      // Por defecto: ordenar por fecha de creación ascendente (comentarios más antiguos primero)
       return { createdAt: 'asc' as const };
     }
 
@@ -345,34 +328,12 @@ export class PrismaCommentDatasource implements CommentDatasource {
 
     switch (pagination.sortBy) {
       case 'voteScore':
-        // Para ordenar por score, primero por createdAt y luego calculamos
+        // Para ordenar por score, por ahora usar fecha
         return { createdAt: sortOrder };
       case 'replies':
-        return { createdAt: sortOrder }; // Los replies se calculan después
+        return { createdAt: sortOrder };
       default:
         return { [pagination.sortBy]: sortOrder };
     }
-  }
-
-  private async calculateVoteScore(commentId: number): Promise<number> {
-    const result = await this.prisma.commentVote.aggregate({
-      where: { commentId },
-      _sum: { voteType: true }
-    });
-
-    return result._sum.voteType || 0;
-  }
-
-  private async getUserVote(commentId: number, userId: number): Promise<1 | -1 | null> {
-    const vote = await this.prisma.commentVote.findUnique({
-      where: {
-        userId_commentId: {
-          userId,
-          commentId
-        }
-      }
-    });
-
-    return vote ? (vote.voteType as 1 | -1) : null;
   }
 }
