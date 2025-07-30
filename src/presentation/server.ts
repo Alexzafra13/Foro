@@ -1,4 +1,4 @@
-// src/presentation/server.ts - ACTUALIZADO CON TODAS LAS RUTAS
+
 import express, { Application } from "express";
 import cors from "cors";
 
@@ -56,27 +56,31 @@ export class Server {
     // Cargar todas las rutas
     const { AuthRoutes } = await import("./routes/auth.routes");
     const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
-    const { PasswordResetRoutes } = await import("./routes/password-reset.routes"); // ✅ AGREGADO
+    const { PasswordResetRoutes } = await import("./routes/password-reset.routes");
     const { UserRoutes } = await import("./routes/user.routes");
-    const { ProfileRoutes } = await import("./routes/profile.routes"); // ✅ AGREGADO
+    const { ProfileRoutes } = await import("./routes/profile.routes");
     const { PostRoutes } = await import("./routes/post.routes");
     const { CommentRoutes } = await import("./routes/comment.routes");
     const { CategoryRoutes } = await import("./routes/category.routes");
     const { ChannelRoutes } = await import("./routes/channel.routes");
     const { InviteRoutes } = await import("./routes/invite.routes");
+    const { VoteRoutes } = await import("./routes/vote.routes"); // ✅ NUEVO: Rutas de votos
 
     // Registrar rutas de autenticación
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
     this.app.use("/api/auth", await EmailVerificationRoutes.getRoutes());
-    this.app.use("/api/auth", await PasswordResetRoutes.getRoutes()); // ✅ AGREGADO
+    this.app.use("/api/auth", await PasswordResetRoutes.getRoutes());
 
     // Registrar rutas de usuarios
     this.app.use("/api/users", await UserRoutes.getRoutes());
-    this.app.use("/api/users", await ProfileRoutes.getRoutes()); // ✅ AGREGADO
+    this.app.use("/api/users", await ProfileRoutes.getRoutes());
 
     // Registrar rutas de contenido
     this.app.use("/api/posts", await PostRoutes.getRoutes());
     this.app.use("/api", await CommentRoutes.getRoutes());
+    
+    // ✅ NUEVO: Registrar rutas de votos
+    this.app.use("/api", await VoteRoutes.getRoutes());
     
     // Registrar rutas de estructura
     this.app.use("/api/categories", await CategoryRoutes.getRoutes());
@@ -111,6 +115,7 @@ export class Server {
           console.log(`   Users: /api/users/*`);
           console.log(`   Posts: /api/posts/*`);
           console.log(`   Comments: /api/posts/:id/comments, /api/comments/*`);
+          console.log(`   Votes: /api/posts/:id/vote, /api/comments/:id/vote`); // ✅ NUEVO
           console.log(`   Categories: /api/categories`);
           console.log(`   Channels: /api/channels/*`);
           console.log(`   Invites: /api/invites/*`);

@@ -1,4 +1,4 @@
-// src/infrastructure/dependencies.ts - CORRIGIDO
+// src/infrastructure/dependencies.ts - CORRIGIDO CON SISTEMA DE VOTOS
 import { PrismaClient } from "@prisma/client";
 
 // Datasources existentes
@@ -15,6 +15,10 @@ import { PrismaUserSettingsDatasource } from "./datasources/prisma-user-settings
 import { PrismaActivityLogDatasource } from "./datasources/prisma-activity-log.datasource";
 import { PrismaPasswordResetTokenDatasource } from "./datasources/prisma-password-reset-token.datasource";
 
+// ✅ NUEVOS DATASOURCES PARA VOTOS
+import { PrismaVoteDatasource } from "./datasources/prisma-vote.datasource";
+import { PrismaCommentVoteDatasource } from "./datasources/prisma-comment-vote.datasource";
+
 // Repositories existentes
 import { UserRepositoryImpl } from "./repositories/user.repository.impl";
 import { PostRepositoryImpl } from "./repositories/post.repository.impl";
@@ -29,6 +33,10 @@ import { UserSettingsRepositoryImpl } from "./repositories/user-settings.reposit
 import { ActivityLogRepositoryImpl } from "./repositories/activity-log.repository.impl";
 import { PasswordResetTokenRepositoryImpl } from "./repositories/password-reset-token.repository.impl";
 
+// ✅ NUEVOS REPOSITORIES PARA VOTOS
+import { VoteRepositoryImpl } from "./repositories/vote.repository.impl";
+import { CommentVoteRepositoryImpl } from "./repositories/comment-vote.repository.impl";
+
 // Use Cases existentes
 import { RegisterUser } from "../domain/use-cases/auth/register-user.use-case";
 import { LoginUser } from "../domain/use-cases/auth/login-user.use-case";
@@ -39,8 +47,8 @@ import { UpdatePost } from "../domain/use-cases/posts/update-post.use-case";
 import { DeletePost } from "../domain/use-cases/posts/delete-post.use-case";
 import { CreateComment } from "../domain/use-cases/comments/create-comment.use-case";
 import { GetComments } from "../domain/use-cases/comments/get-comments.use-case";
-import { UpdateComment } from "../domain/use-cases/comments/update-comment.use-case"; // ✅ AGREGADO
-import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-case"; // ✅ AGREGADO
+import { UpdateComment } from "../domain/use-cases/comments/update-comment.use-case";
+import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-case";
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
 import { GetChannel } from "@/domain/use-cases/channel/get-channel.use-case";
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
@@ -54,7 +62,11 @@ import { UpdateProfile } from "../domain/use-cases/user/update-profile.use-case"
 import { ChangePassword } from "../domain/use-cases/user/change-password.use-case";
 import { GetUserSettings, UpdateUserSettings } from '../domain/use-cases/user/update-user-settings.use-case'
 import { RequestPasswordReset } from "../domain/use-cases/auth/request-password-reset.use-case";
-import { ResetPassword } from "../domain/use-cases/auth/reset-password.use-case"; 
+import { ResetPassword } from "../domain/use-cases/auth/reset-password.use-case";
+
+// ✅ NUEVOS IMPORTS PARA VOTOS
+import { VotePost } from "@/domain/votes/vote-post.use-case";
+import { VoteComment } from "@/domain/votes/vote-comment.use-case"; 
 
 // Controllers existentes
 import { AuthController } from "../presentation/controllers/auth.controller";
@@ -69,6 +81,9 @@ import { ChannelController } from "../presentation/controllers/channel.controlle
 import { ProfileController } from "../presentation/controllers/profile.controller";
 import { SettingsController } from "../presentation/controllers/settings.controller";
 import { PasswordResetController } from "../presentation/controllers/password-reset.controller";
+
+// ✅ NUEVO CONTROLLER PARA VOTOS
+import { VoteController } from "../presentation/controllers/vote.controller";
 
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
@@ -92,6 +107,10 @@ export class Dependencies {
     const activityLogDatasource = new PrismaActivityLogDatasource(prisma);
     const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(prisma);
 
+    // ✅ NUEVOS DATASOURCES PARA VOTOS
+    const voteDatasource = new PrismaVoteDatasource(prisma);
+    const commentVoteDatasource = new PrismaCommentVoteDatasource(prisma);
+
     // Repositories existentes
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
@@ -105,6 +124,10 @@ export class Dependencies {
     const userSettingsRepository = new UserSettingsRepositoryImpl(userSettingsDatasource);
     const activityLogRepository = new ActivityLogRepositoryImpl(activityLogDatasource);
     const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(passwordResetTokenDatasource);
+
+    // ✅ NUEVOS REPOSITORIES PARA VOTOS
+    const voteRepository = new VoteRepositoryImpl(voteDatasource);
+    const commentVoteRepository = new CommentVoteRepositoryImpl(commentVoteDatasource);
 
     // Email Adapter
     const emailAdapter = createEmailAdapter();
@@ -198,6 +221,19 @@ export class Dependencies {
       userRepository
     );
 
+    // ✅ NUEVOS USE CASES - VOTOS
+    const votePost = new VotePost(
+      voteRepository,
+      postRepository,
+      userRepository
+    );
+
+    const voteComment = new VoteComment(
+      commentVoteRepository,
+      commentRepository,
+      userRepository
+    );
+
     // Use Cases - Categories & Channels existentes
     const getCategories = new GetCategories(
       categoryRepository,
@@ -226,8 +262,8 @@ export class Dependencies {
     const commentController = new CommentController(
       createComment, 
       getComments,
-      updateComment, // ✅ YA NO ES NULL
-      deleteComment  // ✅ YA NO ES NULL
+      updateComment,
+      deleteComment
     );
     
     const inviteController = new InviteController(
@@ -258,6 +294,12 @@ export class Dependencies {
       resetPassword
     );
 
+    // ✅ NUEVO CONTROLLER PARA VOTOS
+    const voteController = new VoteController(
+      votePost,
+      voteComment
+    );
+
     return {
       // Repositories
       repositories: {
@@ -272,6 +314,9 @@ export class Dependencies {
         userSettingsRepository,
         activityLogRepository,
         passwordResetTokenRepository,
+        // ✅ NUEVOS PARA VOTOS
+        voteRepository,
+        commentVoteRepository,
       },
 
       // Use Cases
@@ -303,8 +348,12 @@ export class Dependencies {
         // ✅ Comments CORREGIDOS
         createComment,
         getComments,
-        updateComment, // ✅ AGREGADO
-        deleteComment, // ✅ AGREGADO
+        updateComment,
+        deleteComment,
+
+        // ✅ NUEVOS - Votos
+        votePost,
+        voteComment,
 
         // Categories & Channels existentes
         getCategories,
@@ -323,7 +372,7 @@ export class Dependencies {
       controllers: {
         authController,
         postController,
-        commentController, // ✅ YA FUNCIONA COMPLETAMENTE
+        commentController,
         inviteController,
         emailVerificationController,
         categoryController,
@@ -332,6 +381,8 @@ export class Dependencies {
         profileController,
         settingsController,
         passwordResetController,
+        // ✅ NUEVO PARA VOTOS
+        voteController,
       },
     };
   }
