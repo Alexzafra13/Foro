@@ -1,3 +1,4 @@
+// src/infrastructure/dependencies.ts - VERSIÓN COMPLETA ACTUALIZADA
 import { PrismaClient } from "@prisma/client";
 
 // Datasources
@@ -29,13 +30,15 @@ import { GetPostDetail } from "../domain/use-cases/posts/get-post-detail.use-cas
 import { UpdatePost } from "../domain/use-cases/posts/update-post.use-case";
 import { DeletePost } from "../domain/use-cases/posts/delete-post.use-case";
 
-// Use Cases - Comments
+// Use Cases - Comments ✅ ACTUALIZADO
 import { CreateComment } from "../domain/use-cases/comments/create-comment.use-case";
 import { GetComments } from "../domain/use-cases/comments/get-comments.use-case";
+import { UpdateComment } from "../domain/use-cases/comments/update-comment.use-case";  // ← NUEVO
+import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-case";  // ← NUEVO
 
 // Use Cases - Categories & Channels
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
-import { GetChannel } from "../domain/use-cases/channel/get-channel.use-case";
+import { GetChannel } from "@/domain/use-cases/channel/get-channel.use-case";
 
 // Use Cases - Invites
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
@@ -66,7 +69,8 @@ export class Dependencies {
     const userDatasource = new PrismaUserDatasource(prisma);
     const postDatasource = new PrismaPostDatasource(prisma);
     const inviteCodeDatasource = new PrismaInviteCodeDatasource(prisma);
-    const emailVerificationTokenDatasource = new PrismaEmailVerificationTokenDatasource(prisma);
+    const emailVerificationTokenDatasource =
+      new PrismaEmailVerificationTokenDatasource(prisma);
     const commentDatasource = new PrismaCommentDatasource(prisma);
     const categoryDatasource = new PrismaCategoryDatasource(prisma);
     const channelDatasource = new PrismaChannelDatasource(prisma);
@@ -74,8 +78,13 @@ export class Dependencies {
     // Repositories
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
-    const inviteCodeRepository = new InviteCodeRepositoryImpl(inviteCodeDatasource);
-    const emailVerificationTokenRepository = new EmailVerificationTokenRepositoryImpl(emailVerificationTokenDatasource);
+    const inviteCodeRepository = new InviteCodeRepositoryImpl(
+      inviteCodeDatasource
+    );
+    const emailVerificationTokenRepository =
+      new EmailVerificationTokenRepositoryImpl(
+        emailVerificationTokenDatasource
+      );
     const commentRepository = new CommentRepositoryImpl(commentDatasource);
     const categoryRepository = new CategoryRepositoryImpl(categoryDatasource);
     const channelRepository = new ChannelRepositoryImpl(channelDatasource);
@@ -111,13 +120,15 @@ export class Dependencies {
     const updatePost = new UpdatePost(postRepository, userRepository);
     const deletePost = new DeletePost(postRepository, userRepository);
 
-    // Use Cases - Comments
+    // Use Cases - Comments ✅ ACTUALIZADO CON NUEVOS USE CASES
     const createComment = new CreateComment(
       commentRepository,
       userRepository,
       postRepository
     );
     const getComments = new GetComments(commentRepository, postRepository);
+    const updateComment = new UpdateComment(commentRepository, userRepository);  // ← NUEVO
+    const deleteComment = new DeleteComment(commentRepository, userRepository);  // ← NUEVO
 
     // Use Cases - Categories & Channels
     const getCategories = new GetCategories(
@@ -133,7 +144,7 @@ export class Dependencies {
     );
     const validateInviteCode = new ValidateInviteCode(inviteCodeRepository);
 
-    // Controllers
+    // Controllers ✅ ACTUALIZADO COMMENTCONTROLLER
     const authController = new AuthController(registerUser, loginUser);
     const postController = new PostController(
       createPost,
@@ -142,7 +153,12 @@ export class Dependencies {
       updatePost,
       deletePost
     );
-    const commentController = new CommentController(createComment, getComments);
+    const commentController = new CommentController(
+      createComment, 
+      getComments,
+      updateComment,  // ← NUEVO
+      deleteComment   // ← NUEVO
+    );
     const inviteController = new InviteController(
       generateInviteCode,
       validateInviteCode
@@ -179,9 +195,11 @@ export class Dependencies {
         updatePost,
         deletePost,
 
-        // Comments
+        // Comments ✅ ACTUALIZADO CON NUEVOS USE CASES
         createComment,
         getComments,
+        updateComment,  // ← NUEVO
+        deleteComment,  // ← NUEVO
 
         // Categories & Channels
         getCategories,
@@ -200,7 +218,7 @@ export class Dependencies {
       controllers: {
         authController,
         postController,
-        commentController,
+        commentController,  // ← YA ACTUALIZADO CON NUEVOS USE CASES
         inviteController,
         emailVerificationController,
         categoryController,

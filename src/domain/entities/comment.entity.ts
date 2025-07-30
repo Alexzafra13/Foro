@@ -7,6 +7,7 @@ export class CommentEntity {
     public content: string,
     public isEdited: boolean,
     public editedAt: Date | null,
+    public editCount: number,                 
     public isDeleted: boolean,
     public deletedAt: Date | null,
     public deletedBy: number | null,
@@ -34,12 +35,12 @@ export class CommentEntity {
       replies: number;
     },
     public voteScore?: number,
-    public userVote?: 1 | -1 | null // Voto del usuario actual
+    public userVote?: 1 | -1 | null
   ) {}
 
   static fromObject(object: { [key: string]: any }): CommentEntity {
     const {
-      id, postId, authorId, parentCommentId, content, isEdited, editedAt,
+      id, postId, authorId, parentCommentId, content, isEdited, editedAt, editCount,
       isDeleted, deletedAt, deletedBy, deletionReason, isHidden,
       createdAt, updatedAt, author, parentComment, replies, _count, voteScore, userVote
     } = object;
@@ -49,13 +50,12 @@ export class CommentEntity {
     if (!content) throw new Error('Comment content is required');
 
     return new CommentEntity(
-      id, postId, authorId, parentCommentId, content, isEdited || false, editedAt,
+      id, postId, authorId, parentCommentId, content, 
+      isEdited || false, editedAt, editCount || 0,                    // ← NUEVO
       isDeleted || false, deletedAt, deletedBy, deletionReason, isHidden || false,
       createdAt, updatedAt, author, parentComment, replies, _count, voteScore, userVote
     );
   }
-
-  // ===== MÉTODOS DE DOMINIO =====
 
   // Verificar si es autor del comentario
   isAuthor(userId: number): boolean {
@@ -88,20 +88,45 @@ export class CommentEntity {
     // No puedes votar tu propio comentario
     return !this.isAuthor(userId);
   }
-
-  // Verificar si puede ser reportado
-  canBeReportedBy(userId: number): boolean {
-    if (this.isDeleted || this.isHidden) return false;
-    
-    // No puedes reportar tu propio comentario
-    return !this.isAuthor(userId);
-  }
-
+  
   // Marcar como editado
   markAsEdited(): void {
     this.isEdited = true;
     this.editedAt = new Date();
+    this.editCount = (this.editCount || 0) + 1;     // ← NUEVO
     this.updatedAt = new Date();
+  }
+
+  // Obtener tiempo desde creación (para rate limiting)
+  getMinutesSinceCreation(): number {
+    const now = new Date();
+    const diffMs = now.getTime() - this.createdAt.getTime();
+    return Math.floor(diffMs / (1000 * 60));
+  }
+
+  // Verificar si puede ser editado (sin límite de tiempo)
+  canStillBeEdited(): boolean {
+    // Solo verificar que no esté eliminado u oculto
+    return !this.isDeleted && !this.isHidden;
+  }
+
+  // Obtener información de edición para mostrar
+  getEditInfo(): {
+    isEdited: boolean;
+    editedAt: Date | null;
+    editCount: number;
+    canStillEdit: boolean;
+    minutesSinceCreation: number; // Para mostrar "hace X minutos"
+  } {
+    const minutesSinceCreation = this.getMinutesSinceCreation();
+
+    return {
+      isEdited: this.isEdited,
+      editedAt: this.editedAt,
+      editCount: this.editCount || 0,
+      canStillEdit: this.canStillBeEdited(),
+      minutesSinceCreation
+    };
   }
 
   // Marcar como eliminado (soft delete)
@@ -148,17 +173,5 @@ export class CommentEntity {
   // Verificar si tiene respuestas
   hasReplies(): boolean {
     return (this._count?.replies || 0) > 0;
-  }
-
-  // Obtener tiempo desde creación (para rate limiting)
-  getMinutesSinceCreation(): number {
-    const now = new Date();
-    const diffMs = now.getTime() - this.createdAt.getTime();
-    return Math.floor(diffMs / (1000 * 60));
-  }
-
-  // Verificar si puede ser editado (límite de tiempo)
-  canStillBeEdited(maxMinutes: number = 30): boolean {
-    return this.getMinutesSinceCreation() <= maxMinutes;
   }
 }

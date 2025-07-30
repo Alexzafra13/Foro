@@ -11,6 +11,7 @@ export interface UpdateCommentDto {
   content?: string;
   isEdited?: boolean;
   editedAt?: Date;
+  editCount?: number;
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: number;
