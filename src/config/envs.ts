@@ -1,3 +1,4 @@
+// src/config/envs.ts - VERSIÓN DE DEBUG
 interface EnvConfig {
   PORT: number;
   NODE_ENV: string;
@@ -16,11 +17,24 @@ interface EnvConfig {
   EMAIL_VERIFICATION_SECRET: string;
 }
 
+// ✅ DEBUG: Imprimir todas las variables de entorno al inicio
+console.log('🔍 Environment Variables Debug:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('POSTGRES_URL:', process.env.POSTGRES_URL);
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
+console.log('PORT:', process.env.PORT);
+console.log('Todas las env vars que empiezan con POSTGRES:', 
+  Object.keys(process.env).filter(key => key.startsWith('POSTGRES')));
+
 const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = process.env[key] || defaultValue;
   
+  // ✅ DEBUG: Imprimir el valor específico que está buscando
+  console.log(`🔍 Buscando variable: ${key}, valor encontrado: "${value}"`);
+  
   // En modo test, permite valores por defecto
   if (!value && process.env.NODE_ENV !== 'test') {
+    console.error(`❌ Variable de entorno ${key} no encontrada. Valor actual: "${process.env[key]}"`);
     throw new Error(`Variable de entorno ${key} es requerida`);
   }
   
