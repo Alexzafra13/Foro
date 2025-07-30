@@ -1,4 +1,3 @@
-
 import express, { Application } from "express";
 import cors from "cors";
 
@@ -75,12 +74,13 @@ export class Server {
     this.app.use("/api/users", await UserRoutes.getRoutes());
     this.app.use("/api/users", await ProfileRoutes.getRoutes());
 
+    // ✅ CAMBIO CRÍTICO: Registrar rutas de votos ANTES que las otras
+    // Esto evita conflictos con las rutas de posts y comentarios
+    this.app.use("/api", await VoteRoutes.getRoutes());
+
     // Registrar rutas de contenido
     this.app.use("/api/posts", await PostRoutes.getRoutes());
     this.app.use("/api", await CommentRoutes.getRoutes());
-    
-    // ✅ NUEVO: Registrar rutas de votos
-    this.app.use("/api", await VoteRoutes.getRoutes());
     
     // Registrar rutas de estructura
     this.app.use("/api/categories", await CategoryRoutes.getRoutes());
