@@ -1,3 +1,4 @@
+// src/domain/use-cases/categories/get-categories.use-case.ts - CORREGIDO
 import { CategoryRepository } from '../../repositories/category.repository';
 import { ChannelRepository } from '../../repositories/channel.repository';
 
@@ -29,7 +30,7 @@ export interface ChannelDto {
     createdAt: Date;
     author: {
       username: string;
-    };
+    } | null; // ✅ AHORA PERMITE NULL
   } | null;
 }
 
@@ -41,13 +42,13 @@ export class GetCategories {
 
   async execute(): Promise<CategoryDto[]> {
     // 1. Obtener todas las categorías con sus canales
-    const categories = await this.categoryRepository.findAll();
+    const categories = await this.categoryRepository.findWithChannels();
     
     // 2. Para cada categoría, procesar sus canales y estadísticas
     const categoriesWithStats = await Promise.all(
       categories.map(async (category) => {
         const channelsWithStats: ChannelDto[] = await Promise.all(
-          category.channels.map(async (channel: any) => {
+          (category.channels || []).map(async (channel: any) => {
             // Obtener último post del canal
             const lastPost = await this.channelRepository.getLastPost(channel.id);
             
@@ -64,9 +65,9 @@ export class GetCategories {
                 id: lastPost.id,
                 title: lastPost.title,
                 createdAt: lastPost.createdAt,
-                author: {
-                  username: lastPost.author?.username || 'Desconocido'
-                }
+                author: lastPost.author ? {
+                  username: lastPost.author.username
+                } : null // ✅ MANEJAR AUTOR NULL
               } : null
             };
           })

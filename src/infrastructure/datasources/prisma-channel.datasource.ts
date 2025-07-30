@@ -1,10 +1,12 @@
 import { PrismaClient } from '@prisma/client';
+import { ChannelDatasource, ChannelStats, LastPost } from '../../domain/datasources/channel.datasource';
+import { ChannelEntity } from '../../domain/entities/channel.entity';
 
-export class PrismaChannelDatasource {
+export class PrismaChannelDatasource implements ChannelDatasource {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findById(id: number): Promise<any | null> {
-    return await this.prisma.channel.findUnique({
+  async findById(id: number): Promise<ChannelEntity | null> {
+    const channel = await this.prisma.channel.findUnique({
       where: { id },
       include: {
         category: {
@@ -21,10 +23,12 @@ export class PrismaChannelDatasource {
         }
       }
     });
+
+    return channel ? ChannelEntity.fromObject(channel) : null;
   }
 
-  async findByCategory(categoryId: number): Promise<any[]> {
-    return await this.prisma.channel.findMany({
+  async findByCategory(categoryId: number): Promise<ChannelEntity[]> {
+    const channels = await this.prisma.channel.findMany({
       where: {
         categoryId,
         isVisible: true
@@ -41,9 +45,11 @@ export class PrismaChannelDatasource {
         position: 'asc'
       }
     });
+
+    return channels.map(channel => ChannelEntity.fromObject(channel));
   }
 
-  async getChannelStats(channelId: number): Promise<{ posts: number; members?: number }> {
+  async getChannelStats(channelId: number): Promise<ChannelStats> {
     const stats = await this.prisma.channel.findUnique({
       where: { id: channelId },
       select: {
@@ -62,7 +68,7 @@ export class PrismaChannelDatasource {
     };
   }
 
-  async getLastPost(channelId: number): Promise<any | null> {
+  async getLastPost(channelId: number): Promise<LastPost | null> {
     const lastPost = await this.prisma.post.findFirst({
       where: {
         channelId
@@ -82,6 +88,16 @@ export class PrismaChannelDatasource {
       }
     });
 
-    return lastPost;
+    // ✅ MANEJAR EL CASO DONDE author PUEDE SER NULL
+    if (!lastPost) return null;
+
+    return {
+      id: lastPost.id,
+      title: lastPost.title,
+      createdAt: lastPost.createdAt,
+      author: lastPost.author ? {
+        username: lastPost.author.username
+      } : null // ✅ RETORNAR NULL SI NO HAY AUTOR
+    };
   }
 }

@@ -1,4 +1,4 @@
-// src/presentation/server.ts - VERSIÓN DE DEPURACIÓN
+// src/presentation/server.ts - VERSIÓN FINAL LIMPIA
 import express, { Application } from "express";
 import cors from "cors";
 
@@ -33,9 +33,10 @@ export class Server {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
+    // Request logging solo en desarrollo
     if (process.env.NODE_ENV === 'development') {
       this.app.use((req, res, next) => {
-        console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin')}`);
+        console.log(`${req.method} ${req.path}`);
         next();
       });
     }
@@ -52,99 +53,34 @@ export class Server {
       });
     });
 
-    console.log("✅ Health route loaded");
+    // Cargar todas las rutas
+    const { AuthRoutes } = await import("./routes/auth.routes");
+    const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
+    const { UserRoutes } = await import("./routes/user.routes");
+    const { PostRoutes } = await import("./routes/post.routes");
+    const { CommentRoutes } = await import("./routes/comment.routes");
+    const { CategoryRoutes } = await import("./routes/category.routes");
+    const { ChannelRoutes } = await import("./routes/channel.routes");
+    const { InviteRoutes } = await import("./routes/invite.routes");
 
-    // Cargar rutas una por una para detectar el problema
-    try {
-      console.log("🔄 Loading AuthRoutes...");
-      const { AuthRoutes } = await import("./routes/auth.routes");
-      this.app.use("/api/auth", await AuthRoutes.getRoutes());
-      console.log("✅ AuthRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading AuthRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading EmailVerificationRoutes...");
-      const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
-      this.app.use("/api/auth", await EmailVerificationRoutes.getRoutes());
-      console.log("✅ EmailVerificationRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading EmailVerificationRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading UserRoutes...");
-      const { UserRoutes } = await import("./routes/user.routes");
-      this.app.use("/api/users", await UserRoutes.getRoutes());
-      console.log("✅ UserRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading UserRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading PostRoutes...");
-      const { PostRoutes } = await import("./routes/post.routes");
-      this.app.use("/api/posts", await PostRoutes.getRoutes());
-      console.log("✅ PostRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading PostRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading CommentRoutes...");
-      const { CommentRoutes } = await import("./routes/comment.routes");
-      this.app.use("/api", await CommentRoutes.getRoutes());
-      console.log("✅ CommentRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading CommentRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading CategoryRoutes...");
-      const { CategoryRoutes } = await import("./routes/category.routes");
-      this.app.use("/api/categories", await CategoryRoutes.getRoutes());
-      console.log("✅ CategoryRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading CategoryRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading ChannelRoutes...");
-      const { ChannelRoutes } = await import("./routes/channel.routes");
-      this.app.use("/api/channels", await ChannelRoutes.getRoutes());
-      console.log("✅ ChannelRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading ChannelRoutes:", error);
-      throw error;
-    }
-
-    try {
-      console.log("🔄 Loading InviteRoutes...");
-      const { InviteRoutes } = await import("./routes/invite.routes");
-      this.app.use("/api/invites", await InviteRoutes.getRoutes());
-      console.log("✅ InviteRoutes loaded");
-    } catch (error) {
-      console.error("❌ Error loading InviteRoutes:", error);
-      throw error;
-    }
+    // Registrar rutas
+    this.app.use("/api/auth", await AuthRoutes.getRoutes());
+    this.app.use("/api/auth", await EmailVerificationRoutes.getRoutes());
+    this.app.use("/api/users", await UserRoutes.getRoutes());
+    this.app.use("/api/posts", await PostRoutes.getRoutes());
+    this.app.use("/api", await CommentRoutes.getRoutes());
+    this.app.use("/api/categories", await CategoryRoutes.getRoutes());
+    this.app.use("/api/channels", await ChannelRoutes.getRoutes());
+    this.app.use("/api/invites", await InviteRoutes.getRoutes());
 
     // 404 handler
-    this.app.use('*', (req, res) => {
+    this.app.use((req, res) => {
       res.status(404).json({
         success: false,
         error: `Route ${req.originalUrl} not found`,
         code: 'ROUTE_NOT_FOUND'
       });
     });
-
-    console.log("✅ All routes loaded successfully");
   }
 
   async start() {
@@ -152,10 +88,13 @@ export class Server {
       await this.routes();
       
       this.app.listen(this.port, () => {
-        console.log(`🚀 Server running on port ${this.port}`);
+        console.log(`🚀 Forum API running on port ${this.port}`);
         console.log(`📡 Health check: http://localhost:${this.port}/health`);
-        console.log(`🌐 CORS enabled for frontend: http://localhost:5173`);
-        console.log(`\n🎯 Ready for testing!`);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🌐 CORS enabled for frontend: http://localhost:5173`);
+          console.log(`\n🎯 Ready for development!`);
+        }
       });
     } catch (error) {
       console.error("❌ Failed to start server:", error);

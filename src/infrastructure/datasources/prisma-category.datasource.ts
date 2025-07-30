@@ -1,10 +1,12 @@
 import { PrismaClient } from '@prisma/client';
+import { CategoryDatasource } from '../../domain/datasources/category.datasource';
+import { CategoryEntity } from '../../domain/entities/category.entity';
 
-export class PrismaCategoryDatasource {
+export class PrismaCategoryDatasource implements CategoryDatasource {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAll(): Promise<any[]> {
-    return await this.prisma.category.findMany({
+  async findAll(): Promise<CategoryEntity[]> {
+    const categories = await this.prisma.category.findMany({
       where: {
         isVisible: true
       },
@@ -30,10 +32,12 @@ export class PrismaCategoryDatasource {
         position: 'asc'
       }
     });
+
+    return categories.map(category => CategoryEntity.fromObject(category));
   }
 
-  async findById(id: number): Promise<any | null> {
-    return await this.prisma.category.findUnique({
+  async findById(id: number): Promise<CategoryEntity | null> {
+    const category = await this.prisma.category.findUnique({
       where: { id },
       include: {
         channels: {
@@ -46,5 +50,11 @@ export class PrismaCategoryDatasource {
         }
       }
     });
+
+    return category ? CategoryEntity.fromObject(category) : null;
+  }
+
+  async findWithChannels(): Promise<CategoryEntity[]> {
+    return this.findAll();
   }
 }

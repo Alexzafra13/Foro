@@ -33,9 +33,9 @@ import { DeletePost } from "../domain/use-cases/posts/delete-post.use-case";
 import { CreateComment } from "../domain/use-cases/comments/create-comment.use-case";
 import { GetComments } from "../domain/use-cases/comments/get-comments.use-case";
 
-
+// Use Cases - Categories & Channels
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
-import { GetChannel } from "@/domain/use-cases/channel/get-channel.use-case";
+import { GetChannel } from "../domain/use-cases/channel/get-channel.use-case";
 
 // Use Cases - Invites
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
@@ -66,8 +66,7 @@ export class Dependencies {
     const userDatasource = new PrismaUserDatasource(prisma);
     const postDatasource = new PrismaPostDatasource(prisma);
     const inviteCodeDatasource = new PrismaInviteCodeDatasource(prisma);
-    const emailVerificationTokenDatasource =
-      new PrismaEmailVerificationTokenDatasource(prisma);
+    const emailVerificationTokenDatasource = new PrismaEmailVerificationTokenDatasource(prisma);
     const commentDatasource = new PrismaCommentDatasource(prisma);
     const categoryDatasource = new PrismaCategoryDatasource(prisma);
     const channelDatasource = new PrismaChannelDatasource(prisma);
@@ -75,13 +74,8 @@ export class Dependencies {
     // Repositories
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
-    const inviteCodeRepository = new InviteCodeRepositoryImpl(
-      inviteCodeDatasource
-    );
-    const emailVerificationTokenRepository =
-      new EmailVerificationTokenRepositoryImpl(
-        emailVerificationTokenDatasource
-      );
+    const inviteCodeRepository = new InviteCodeRepositoryImpl(inviteCodeDatasource);
+    const emailVerificationTokenRepository = new EmailVerificationTokenRepositoryImpl(emailVerificationTokenDatasource);
     const commentRepository = new CommentRepositoryImpl(commentDatasource);
     const categoryRepository = new CategoryRepositoryImpl(categoryDatasource);
     const channelRepository = new ChannelRepositoryImpl(channelDatasource);
@@ -117,7 +111,7 @@ export class Dependencies {
     const updatePost = new UpdatePost(postRepository, userRepository);
     const deletePost = new DeletePost(postRepository, userRepository);
 
-    // Use Cases - Comments ✅ CORREGIDO EL ORDEN DE PARÁMETROS
+    // Use Cases - Comments
     const createComment = new CreateComment(
       commentRepository,
       userRepository,

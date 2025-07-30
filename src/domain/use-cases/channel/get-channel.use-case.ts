@@ -42,7 +42,10 @@ export class GetChannel {
       throw new Error('Authentication required for private channel');
     }
 
-    // 3. Calcular permisos
+    // 3. Obtener estadísticas
+    const stats = await this.channelRepository.getChannelStats(channelId);
+
+    // 4. Calcular permisos
     const permissions = {
       canPost: !!userId, // Solo usuarios autenticados pueden postear
       canView: !channel.isPrivate || !!userId // Todos ven canales públicos, solo autenticados ven privados
@@ -59,8 +62,8 @@ export class GetChannel {
         name: channel.category.name
       } : null,
       stats: {
-        posts: channel._count?.posts || 0,
-        members: channel._count?.members || 0
+        posts: stats.posts,
+        members: stats.members
       },
       permissions
     };

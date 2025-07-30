@@ -1,15 +1,19 @@
-// src/infrastructure/repositories/category.repository.impl.ts
+import { CategoryEntity } from '../../domain/entities/category.entity';
 import { CategoryRepository } from '../../domain/repositories/category.repository';
-import { PrismaCategoryDatasource } from '../datasources/prisma-category.datasource'; 
+import { CategoryDatasource } from '../../domain/datasources/category.datasource';
 
 export class CategoryRepositoryImpl implements CategoryRepository {
-  constructor(private readonly datasource: PrismaCategoryDatasource) {}
+  constructor(private readonly datasource: CategoryDatasource) {}
 
-  async findAll(): Promise<any[]> {
+  async findAll(): Promise<CategoryEntity[]> {
     return await this.datasource.findAll();
   }
 
-  async findById(id: number): Promise<any | null> {
+  async findById(id: number): Promise<CategoryEntity | null> {
     return await this.datasource.findById(id);
+  }
+
+  async findWithChannels(): Promise<CategoryEntity[]> {
+    return await this.datasource.findWithChannels();
   }
 }
