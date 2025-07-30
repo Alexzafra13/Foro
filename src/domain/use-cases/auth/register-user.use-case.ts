@@ -1,6 +1,5 @@
 import { UserRepository } from '../../repositories/user.repository';
 import { InviteCodeRepository } from '../../repositories/invite-code.repository';
-import { UserEntity } from '../../entities/user.entity';
 import { UserErrors, ValidationErrors, InviteCodeErrors } from '../../../shared/errors';
 import { bcryptAdapter } from '../../../config/bcrypt.adapter';
 import { JwtAdapter } from '../../../config/jwt.adapter';
