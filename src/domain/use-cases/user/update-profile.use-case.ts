@@ -7,8 +7,8 @@ import { ActivityLogEntity } from '../../entities/activity-log.entity';
 export interface UpdateProfileRequestDto {
   userId: number; // Del JWT
   username?: string;
-  bio?: string;
-  avatarUrl?: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
   ipAddress?: string;
 }
 
@@ -70,7 +70,7 @@ export class UpdateProfile implements UpdateProfileUseCase {
     // Validar y actualizar bio si se proporciona
     if (bio !== undefined) {
       this.validateBio(bio);
-      const trimmedBio = bio.trim() || null;
+      const trimmedBio = bio?.trim() || null; // ✅ Usar optional chaining
       if (trimmedBio !== existingUser.bio) {
         updateData.bio = trimmedBio;
         changes.push('bio');
@@ -138,14 +138,20 @@ export class UpdateProfile implements UpdateProfileUseCase {
     }
   }
 
-  private validateBio(bio: string): void {
-    if (bio && bio.trim().length > 500) {
+  // ✅ CORRECCIÓN: Acepta string | null
+  private validateBio(bio: string | null): void {
+    // Si bio es null, undefined o string vacío, no hacer validaciones
+    if (!bio) {
+      return;
+    }
+
+    if (bio.trim().length > 500) {
       throw ValidationErrors.maxLength('Bio', 500);
     }
 
     // Validación básica de contenido inapropiado
     const forbiddenWords = ['spam', 'hack', 'phishing']; // Lista básica
-    const lowerBio = bio.toLowerCase();
+    const lowerBio = bio.toLowerCase(); // ✅ AHORA es seguro llamar toLowerCase
     
     for (const word of forbiddenWords) {
       if (lowerBio.includes(word)) {
@@ -154,7 +160,8 @@ export class UpdateProfile implements UpdateProfileUseCase {
     }
   }
 
-  private validateAvatarUrl(avatarUrl: string): void {
+  // ✅ CORRECCIÓN: Acepta string | null
+  private validateAvatarUrl(avatarUrl: string | null): void {
     if (!avatarUrl) return;
 
     // Validar que sea una URL válida
