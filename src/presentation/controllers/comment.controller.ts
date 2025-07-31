@@ -49,12 +49,29 @@ export class CommentController {
   async getByPostId(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.postId);
-      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
+      const userId = req.user?.userId; // ✅ Obtener userId
       
+      console.log(`🔍 CommentController.getByPostId called with:`, { 
+        postId, 
+        userId, 
+        userExists: !!req.user,
+        rawPostId: req.params.postId 
+      });
+
       if (isNaN(postId)) {
+        console.log(`❌ Invalid postId: ${req.params.postId}`);
         return res.status(400).json({
           success: false,
           error: 'Invalid post ID'
+        });
+      }
+
+      if (!userId) {
+        console.log(`❌ No userId found in request`);
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          code: 'AUTH_REQUIRED'
         });
       }
 
@@ -78,7 +95,7 @@ export class CommentController {
         includeReplies: includeReplies === 'true'
       });
 
-      console.log(`✅ Returning ${result.comments.length} comments`);
+      console.log(`✅ Returning ${result.comments.length} comments with pagination:`, result.pagination);
 
       res.json({
         success: true,
@@ -88,6 +105,7 @@ export class CommentController {
         message: `Found ${result.comments.length} comments`
       });
     } catch (error) {
+      console.error(`❌ Error in getByPostId:`, error);
       this.handleError(error, res, 'Error fetching comments');
     }
   }

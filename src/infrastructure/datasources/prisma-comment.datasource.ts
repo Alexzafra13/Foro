@@ -106,7 +106,18 @@ export class PrismaCommentDatasource implements CommentDatasource {
       // Construir orderBy clause
       const orderBy = this.buildOrderByClause(pagination);
 
-      console.log('🔍 Finding comments with:', { where, orderBy, skip, limit, userId });
+      console.log('🔍 PrismaCommentDatasource.findMany with:', { 
+        where, 
+        orderBy, 
+        skip, 
+        limit, 
+        userId,
+        filters 
+      });
+
+      // ✅ QUERY DIRECTA PARA DEBUG
+      const directCount = await this.prisma.comment.count({ where });
+      console.log(`📊 Direct count query result: ${directCount} comments match the where clause`);
 
       // Ejecutar queries en paralelo
       const [comments, total] = await Promise.all([
@@ -136,12 +147,14 @@ export class PrismaCommentDatasource implements CommentDatasource {
         this.prisma.comment.count({ where })
       ]);
 
-      console.log(`✅ Found ${comments.length} comments out of ${total} total`);
+      console.log(`✅ Raw query results: Found ${comments.length} comments out of ${total} total`);
 
       // ✅ PROCESAR COMENTARIOS CON VOTOS
       const processedComments = comments.map((comment) => {
         const voteScore = this.calculateVoteScore(comment.votes);
         const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
+        
+        console.log(`📝 Processing comment ${comment.id}: voteScore=${voteScore}, userVote=${userVote}`);
         
         return CommentEntity.fromObject({ 
           ...comment, 
@@ -160,7 +173,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
       const hasNext = page < totalPages;
       const hasPrev = page > 1;
 
-      return {
+      const result = {
         data: processedComments,
         pagination: {
           page,
@@ -171,6 +184,10 @@ export class PrismaCommentDatasource implements CommentDatasource {
           hasPrev
         }
       };
+
+      console.log(`✅ Final result: ${result.data.length} comments with pagination:`, result.pagination);
+
+      return result;
     } catch (error) {
       console.error('❌ Error in findMany comments:', error);
       throw new Error(`Failed to fetch comments: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -252,17 +269,26 @@ export class PrismaCommentDatasource implements CommentDatasource {
     pagination?: CommentPaginationOptions,
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    console.log(`🔍 Finding comments for post ${postId} with userId: ${userId}`);
-    return this.findMany(
-      { 
-        postId, 
-        parentCommentId: null, // ✅ SOLO comentarios raíz (no respuestas)
-        isDeleted: false,      // ✅ SOLO comentarios no eliminados
-        isHidden: false        // ✅ SOLO comentarios no ocultos
-      },
-      pagination,
-      userId
-    );
+    console.log(`🔍 PrismaCommentDatasource.findByPostId called with:`, { 
+      postId, 
+      userId, 
+      pagination 
+    });
+
+    const filters = { 
+      postId, 
+      parentCommentId: null, // ✅ SOLO comentarios raíz (no respuestas)
+      isDeleted: false,      // ✅ SOLO comentarios no eliminados
+      isHidden: false        // ✅ SOLO comentarios no ocultos
+    };
+
+    console.log(`🔍 Using filters:`, filters);
+
+    const result = await this.findMany(filters, pagination, userId);
+    
+    console.log(`✅ PrismaCommentDatasource.findByPostId returning ${result.data.length} comments`);
+    
+    return result;
   }
 
   async findReplies(

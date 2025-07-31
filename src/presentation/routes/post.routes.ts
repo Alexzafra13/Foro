@@ -50,7 +50,7 @@ export class PostRoutes {
    
     // Listar comentarios de post → /api/posts/:postId/comments
     router.get('/:postId/comments',
-      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
+      AuthMiddleware.validateToken, // ✅ CAMBIAR A REQUERIDO (foro privado)
       deps.controllers.commentController.getByPostId.bind(deps.controllers.commentController)
     );
 
