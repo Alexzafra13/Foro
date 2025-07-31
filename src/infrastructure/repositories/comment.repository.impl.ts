@@ -1,3 +1,4 @@
+// src/infrastructure/repositories/comment.repository.impl.ts - ACTUALIZADA
 import { CommentEntity } from '../../domain/entities/comment.entity';
 import { CommentRepository } from '../../domain/repositories/comment.repository';
 import { 
@@ -17,15 +18,15 @@ export class CommentRepositoryImpl implements CommentRepository {
   }
 
   async findById(id: number, userId?: number): Promise<CommentEntity | null> {
-    return await this.commentDatasource.findById(id, userId);
+    return await this.commentDatasource.findById(id, userId); // ✅ PASAR userId
   }
 
   async findMany(
     filters?: CommentFilters,
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ RECIBIR userId
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    return await this.commentDatasource.findMany(filters, pagination, userId);
+    return await this.commentDatasource.findMany(filters, pagination, userId); // ✅ PASAR userId
   }
 
   async updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity> {
@@ -39,17 +40,17 @@ export class CommentRepositoryImpl implements CommentRepository {
   async findByPostId(
     postId: number, 
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ RECIBIR userId
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    return await this.commentDatasource.findByPostId(postId, pagination, userId);
+    return await this.commentDatasource.findByPostId(postId, pagination, userId); // ✅ PASAR userId
   }
 
   async findReplies(
     parentCommentId: number,
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ RECIBIR userId
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    return await this.commentDatasource.findReplies(parentCommentId, pagination, userId);
+    return await this.commentDatasource.findReplies(parentCommentId, pagination, userId); // ✅ PASAR userId
   }
 
   async getCommentStats(commentId: number): Promise<{

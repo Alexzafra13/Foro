@@ -1,6 +1,4 @@
-// src/infrastructure/datasources/prisma-comment.datasource.ts
-// FIX TEMPORAL: Comentarios sin sistema de votos para resolver error 500
-
+// src/infrastructure/datasources/prisma-comment.datasource.ts - CORREGIDO COMPLETO
 import { PrismaClient } from '@prisma/client';
 import { 
   CommentDatasource, 
@@ -29,16 +27,21 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            replies: true
+            replies: true,
+            votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR VOTOS
       }
     });
 
+    // ✅ CALCULAR voteScore Y userVote
+    const voteScore = this.calculateVoteScore(comment.votes);
+    
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore: 0, // Temporal: sin sistema de votos
-      userVote: null,
+      voteScore,
+      userVote: null, // Para comentarios recién creados
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -61,18 +64,24 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            replies: true
+            replies: true,
+            votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR VOTOS
       }
     });
 
     if (!comment) return null;
 
+    // ✅ CALCULAR voteScore Y userVote
+    const voteScore = this.calculateVoteScore(comment.votes);
+    const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
+
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore: 0, // Temporal: sin sistema de votos
-      userVote: null,
+      voteScore,
+      userVote,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -91,13 +100,13 @@ export class PrismaCommentDatasource implements CommentDatasource {
       const limit = pagination?.limit || 20;
       const skip = (page - 1) * limit;
 
-      // Construir where clause
+      // ✅ CONSTRUIR WHERE CLAUSE CORREGIDA
       const where = this.buildWhereClause(filters);
 
       // Construir orderBy clause
       const orderBy = this.buildOrderByClause(pagination);
 
-      console.log('🔍 Finding comments with:', { where, orderBy, skip, limit });
+      console.log('🔍 Finding comments with:', { where, orderBy, skip, limit, userId });
 
       // Ejecutar queries en paralelo
       const [comments, total] = await Promise.all([
@@ -117,9 +126,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
             },
             _count: {
               select: {
-                replies: true
+                replies: true,
+                votes: true
               }
-            }
+            },
+            votes: true // ✅ INCLUIR VOTOS
           }
         }),
         this.prisma.comment.count({ where })
@@ -127,12 +138,15 @@ export class PrismaCommentDatasource implements CommentDatasource {
 
       console.log(`✅ Found ${comments.length} comments out of ${total} total`);
 
-      // Procesar comentarios sin sistema de votos (temporal)
+      // ✅ PROCESAR COMENTARIOS CON VOTOS
       const processedComments = comments.map((comment) => {
+        const voteScore = this.calculateVoteScore(comment.votes);
+        const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
+        
         return CommentEntity.fromObject({ 
           ...comment, 
-          voteScore: 0, // Temporal: sin sistema de votos
-          userVote: null,
+          voteScore,
+          userVote,
           parentComment: comment.parentComment ? {
             id: comment.parentComment.id,
             content: comment.parentComment.content.substring(0, 50) + '...',
@@ -178,16 +192,20 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            replies: true
+            replies: true,
+            votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR VOTOS
       }
     });
 
+    const voteScore = this.calculateVoteScore(comment.votes);
+    
     return CommentEntity.fromObject({ 
       ...comment, 
-      voteScore: 0, // Temporal: sin sistema de votos
-      userVote: null,
+      voteScore,
+      userVote: null, // No necesitamos userVote en updates
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -210,7 +228,8 @@ export class PrismaCommentDatasource implements CommentDatasource {
         },
         _count: {
           select: {
-            replies: true
+            replies: true,
+            votes: true
           }
         }
       }
@@ -233,9 +252,14 @@ export class PrismaCommentDatasource implements CommentDatasource {
     pagination?: CommentPaginationOptions,
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    console.log(`🔍 Finding comments for post ${postId}`);
+    console.log(`🔍 Finding comments for post ${postId} with userId: ${userId}`);
     return this.findMany(
-      { postId, parentCommentId: null }, // Solo comentarios raíz
+      { 
+        postId, 
+        parentCommentId: null, // ✅ SOLO comentarios raíz (no respuestas)
+        isDeleted: false,      // ✅ SOLO comentarios no eliminados
+        isHidden: false        // ✅ SOLO comentarios no ocultos
+      },
       pagination,
       userId
     );
@@ -247,7 +271,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
     return this.findMany(
-      { parentCommentId },
+      { 
+        parentCommentId,
+        isDeleted: false,
+        isHidden: false
+      },
       pagination,
       userId
     );
@@ -260,14 +288,39 @@ export class PrismaCommentDatasource implements CommentDatasource {
     repliesCount: number;
   }> {
     try {
-      const repliesCount = await this.prisma.comment.count({
-        where: { parentCommentId: commentId, isDeleted: false }
+      // ✅ OBTENER ESTADÍSTICAS REALES
+      const [voteStats, repliesCount] = await Promise.all([
+        this.prisma.commentVote.groupBy({
+          by: ['voteType'],
+          where: { commentId },
+          _count: { voteType: true }
+        }),
+        this.prisma.comment.count({
+          where: { 
+            parentCommentId: commentId, 
+            isDeleted: false,
+            isHidden: false
+          }
+        })
+      ]);
+
+      let upvotes = 0;
+      let downvotes = 0;
+
+      voteStats.forEach(stat => {
+        if (stat.voteType === 1) {
+          upvotes = stat._count.voteType;
+        } else if (stat.voteType === -1) {
+          downvotes = stat._count.voteType;
+        }
       });
 
+      const voteScore = upvotes - downvotes;
+
       return {
-        voteScore: 0, // Temporal: sin sistema de votos
-        upvotes: 0,
-        downvotes: 0,
+        voteScore,
+        upvotes,
+        downvotes,
         repliesCount
       };
     } catch (error) {
@@ -281,7 +334,19 @@ export class PrismaCommentDatasource implements CommentDatasource {
     }
   }
 
-  // Métodos privados auxiliares
+  // ✅ MÉTODOS AUXILIARES PARA VOTOS
+  private calculateVoteScore(votes: any[]): number {
+    if (!votes || votes.length === 0) return 0;
+    return votes.reduce((sum, vote) => sum + vote.voteType, 0);
+  }
+
+  private getUserVote(votes: any[], userId: number): 1 | -1 | null {
+    if (!votes || votes.length === 0) return null;
+    const userVote = votes.find(vote => vote.userId === userId);
+    return userVote ? userVote.voteType : null;
+  }
+
+  // ✅ WHERE CLAUSE CORREGIDA
   private buildWhereClause(filters?: CommentFilters) {
     const where: any = {};
 
@@ -293,26 +358,22 @@ export class PrismaCommentDatasource implements CommentDatasource {
       where.authorId = filters.authorId;
     }
 
+    // ✅ MANEJAR parentCommentId CORRECTAMENTE
     if (filters?.parentCommentId !== undefined) {
       where.parentCommentId = filters.parentCommentId;
     }
 
-    // Por defecto, no mostrar comentarios eliminados u ocultos
-    if (!filters?.includeDeleted) {
-      where.isDeleted = false;
-    }
-
-    if (!filters?.includeHidden) {
-      where.isHidden = false;
-    }
-
-    // Filtros específicos para moderación
+    // ✅ FILTROS DE VISIBILIDAD MEJORADOS
     if (filters?.isDeleted !== undefined) {
       where.isDeleted = filters.isDeleted;
+    } else if (!filters?.includeDeleted) {
+      where.isDeleted = false; // Por defecto, no mostrar eliminados
     }
 
     if (filters?.isHidden !== undefined) {
       where.isHidden = filters.isHidden;
+    } else if (!filters?.includeHidden) {
+      where.isHidden = false; // Por defecto, no mostrar ocultos
     }
 
     return where;

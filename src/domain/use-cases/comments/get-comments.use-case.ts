@@ -1,12 +1,12 @@
-
+// src/domain/use-cases/comments/get-comments.use-case.ts - ACTUALIZADA PARA FORO PRIVADO
 import { CommentRepository } from '../../repositories/comment.repository';
 import { PostRepository } from '../../repositories/post.repository';
 import { CommentPaginationOptions } from '../../datasources/comment.datasource';
-import { PostErrors } from '../../../shared/errors';
+import { PostErrors, AuthErrors } from '../../../shared/errors';
 
 export interface GetCommentsRequestDto {
   postId: number;
-  userId?: number; // Para obtener votos del usuario
+  userId: number; // ✅ REQUERIDO (foro privado)
   page?: number;
   limit?: number;
   sortBy?: 'createdAt' | 'voteScore' | 'replies';
@@ -43,6 +43,8 @@ export interface CommentSummaryDto {
     upvotes: number;
     downvotes: number;
   };
+  // ✅ CAMPOS DE VOTOS PRINCIPALES
+  voteScore: number;
   userVote: 1 | -1 | null; // Voto del usuario actual
   replies?: CommentSummaryDto[]; // Respuestas anidadas (opcional)
 }
@@ -78,8 +80,13 @@ export class GetComments implements GetCommentsUseCase {
   async execute(dto: GetCommentsRequestDto): Promise<GetCommentsResponseDto> {
     const { postId, userId, includeReplies = false } = dto;
 
+    // ✅ VALIDAR AUTENTICACIÓN (foro privado)
+    if (!userId) {
+      throw AuthErrors.tokenRequired();
+    }
+
     // 1. Verificar que el post existe
-    const post = await this.postRepository.findById(postId);
+    const post = await this.postRepository.findById(postId, userId);
     if (!post) {
       throw PostErrors.postNotFound(postId);
     }
@@ -87,8 +94,10 @@ export class GetComments implements GetCommentsUseCase {
     // 2. Construir parámetros de paginación
     const pagination = this.buildPagination(dto);
 
-    // 3. Obtener comentarios raíz (no respuestas)
+    // 3. Obtener comentarios raíz (no respuestas) CON userId
+    console.log(`🔍 Getting comments for post ${postId} with userId ${userId}`);
     const result = await this.commentRepository.findByPostId(postId, pagination, userId);
+    console.log(`✅ Found ${result.data.length} comments with pagination:`, result.pagination);
 
     // 4. Formatear comentarios base
     const formattedComments = await Promise.all(
@@ -137,11 +146,11 @@ export class GetComments implements GetCommentsUseCase {
     };
   }
 
-  private async loadReplies(parentCommentId: number, userId?: number): Promise<CommentSummaryDto[]> {
+  private async loadReplies(parentCommentId: number, userId: number): Promise<CommentSummaryDto[]> {
     const repliesResult = await this.commentRepository.findReplies(
       parentCommentId, 
       { page: 1, limit: 10, sortBy: 'createdAt', sortOrder: 'asc' }, // Máximo 10 respuestas por comentario
-      userId
+      userId // ✅ PASAR userId
     );
 
     return Promise.all(
@@ -175,6 +184,8 @@ export class GetComments implements GetCommentsUseCase {
         upvotes: stats.upvotes,
         downvotes: stats.downvotes
       },
+      // ✅ CAMPOS DE VOTOS PRINCIPALES
+      voteScore: comment.voteScore || 0,
       userVote: comment.userVote || null
     };
 
@@ -183,7 +194,7 @@ export class GetComments implements GetCommentsUseCase {
 
   private async getTotalCommentsCount(postId: number): Promise<number> {
     const result = await this.commentRepository.findMany(
-      { postId },
+      { postId, isDeleted: false, isHidden: false },
       { page: 1, limit: 1 }
     );
     return result.pagination.total;

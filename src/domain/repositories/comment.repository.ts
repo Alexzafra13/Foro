@@ -1,3 +1,4 @@
+// src/domain/repositories/comment.repository.ts - ACTUALIZADA
 import { CommentEntity } from '../entities/comment.entity';
 import { 
   CreateCommentDto, 
@@ -9,11 +10,11 @@ import {
 
 export abstract class CommentRepository {
   abstract create(createCommentDto: CreateCommentDto): Promise<CommentEntity>;
-  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>;
+  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>; // ✅ AGREGADO userId
   abstract findMany(
     filters?: CommentFilters,
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   abstract updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity>;
   abstract deleteById(id: number): Promise<CommentEntity>;
@@ -22,13 +23,13 @@ export abstract class CommentRepository {
   abstract findByPostId(
     postId: number, 
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract findReplies(
     parentCommentId: number,
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract getCommentStats(commentId: number): Promise<{

@@ -1,3 +1,4 @@
+// src/domain/datasources/comment.datasource.ts - ACTUALIZADA
 import { CommentEntity } from '../entities/comment.entity';
 
 export interface CreateCommentDto {
@@ -51,11 +52,11 @@ export interface PaginatedCommentsResult<T> {
 
 export abstract class CommentDatasource {
   abstract create(createCommentDto: CreateCommentDto): Promise<CommentEntity>;
-  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>;
+  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>; // ✅ AGREGADO userId
   abstract findMany(
     filters?: CommentFilters,
     pagination?: CommentPaginationOptions,
-    userId?: number // Para obtener votos del usuario
+    userId?: number // ✅ AGREGADO userId para obtener votos del usuario
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   abstract updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity>;
   abstract deleteById(id: number): Promise<CommentEntity>;
@@ -64,13 +65,13 @@ export abstract class CommentDatasource {
   abstract findByPostId(
     postId: number, 
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract findReplies(
     parentCommentId: number,
     pagination?: CommentPaginationOptions,
-    userId?: number
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract getCommentStats(commentId: number): Promise<{

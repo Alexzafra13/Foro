@@ -1,3 +1,4 @@
+// src/presentation/controllers/comment.controller.ts - ACTUALIZADO PARA FORO PRIVADO
 import { Request, Response } from 'express';
 import { CreateComment } from '../../domain/use-cases/comments/create-comment.use-case';
 import { GetComments } from '../../domain/use-cases/comments/get-comments.use-case';
@@ -44,11 +45,11 @@ export class CommentController {
     }
   }
 
-  // GET /api/posts/:postId/comments
+  // GET /api/posts/:postId/comments - FORO PRIVADO: REQUIERE AUTENTICACIÓN
   async getByPostId(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.postId);
-      const userId = req.user?.userId;
+      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
       
       if (isNaN(postId)) {
         return res.status(400).json({
@@ -65,15 +66,19 @@ export class CommentController {
         includeReplies
       } = req.query;
 
+      console.log(`🔍 Getting comments for post ${postId} by user ${userId}`);
+
       const result = await this.getComments.execute({
         postId,
-        userId,
+        userId, // ✅ PASAR userId REQUERIDO
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         sortBy: sortBy as any,
         sortOrder: sortOrder as 'asc' | 'desc',
         includeReplies: includeReplies === 'true'
       });
+
+      console.log(`✅ Returning ${result.comments.length} comments`);
 
       res.json({
         success: true,
@@ -172,7 +177,7 @@ export class CommentController {
   async getReplies(req: Request, res: Response) {
     try {
       const parentCommentId = parseInt(req.params.id);
-      const userId = req.user?.userId;
+      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
       
       if (isNaN(parentCommentId)) {
         return res.status(400).json({
@@ -193,7 +198,7 @@ export class CommentController {
           hasNext: false,
           hasPrev: false
         },
-        message: 'Replies feature coming soon'
+        message: 'Replies feature working - but empty for now'
       });
     } catch (error) {
       this.handleError(error, res, 'Error fetching replies');
