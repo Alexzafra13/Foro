@@ -1,6 +1,6 @@
-import { CommentVoteRepository } from '../repositories/comment-vote.repository'; 
-import { CommentRepository } from '../repositories/comment.repository'; 
-import { UserRepository } from '../repositories/user.repository'; 
+import { CommentVoteRepository } from '@/domain/repositories/comment-vote.repository';
+import { CommentRepository } from '@/domain/repositories/comment.repository'; 
+import { UserRepository } from '@/domain/repositories/user.repository';
 import { UserErrors } from '@/shared';
 
 export interface VoteCommentRequestDto {

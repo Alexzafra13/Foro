@@ -65,8 +65,8 @@ import { RequestPasswordReset } from "../domain/use-cases/auth/request-password-
 import { ResetPassword } from "../domain/use-cases/auth/reset-password.use-case";
 
 // ✅ NUEVOS IMPORTS PARA VOTOS
-import { VotePost } from "@/domain/votes/vote-post.use-case";
-import { VoteComment } from "@/domain/votes/vote-comment.use-case"; 
+import { VotePost } from "@/domain/use-cases/votes/vote-post.use-case"; 
+import { VoteComment } from "@/domain/use-cases/votes/vote-comment.use-case"; 
 
 // Controllers existentes
 import { AuthController } from "../presentation/controllers/auth.controller";

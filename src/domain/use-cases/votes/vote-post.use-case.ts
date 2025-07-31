@@ -1,6 +1,6 @@
-import { VoteRepository } from '../repositories/vote.repository'; 
-import { PostRepository } from '../repositories/post.repository';
-import { UserRepository } from '../repositories/user.repository'; 
+import { VoteRepository } from '@/domain/repositories/vote.repository';
+import { PostRepository } from '@/domain/repositories/post.repository'; 
+import { UserRepository } from '@/domain/repositories/user.repository';
 import { PostErrors, UserErrors } from '@/shared';
 
 export interface VotePostRequestDto {
