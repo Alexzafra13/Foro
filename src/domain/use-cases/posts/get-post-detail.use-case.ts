@@ -1,11 +1,11 @@
-
+// src/domain/use-cases/posts/get-post-detail.use-case.ts - CORREGIDO PARA FORO PRIVADO
 import { PostRepository } from '../../repositories/post.repository';
 import { PostEntity } from '../../entities/post.entity'; 
 import { PostErrors, AuthErrors } from '../../../shared/errors';
 
 export interface GetPostDetailRequestDto {
   postId: number;
-  userId: number; // ✅ AHORA REQUERIDO (no opcional)
+  userId: number; // ✅ REQUERIDO (foro privado)
 }
 
 export interface PostDetailResponseDto {
@@ -36,6 +36,9 @@ export interface PostDetailResponseDto {
     votes: number;
     voteScore: number;
   };
+  // ✅ CAMPOS DE VOTOS PRINCIPALES
+  voteScore: number;
+  userVote: 1 | -1 | null;
   permissions: {
     canEdit: boolean;
     canDelete: boolean;
@@ -54,19 +57,22 @@ export class GetPostDetail implements GetPostDetailUseCase {
   async execute(dto: GetPostDetailRequestDto): Promise<PostDetailResponseDto> {
     const { postId, userId } = dto;
 
-    // ✅ NUEVO: Verificar que el usuario esté autenticado
+    // ✅ VALIDAR AUTENTICACIÓN (foro privado)
     if (!userId) {
       throw AuthErrors.tokenRequired();
     }
 
-    // 1. Buscar el post con toda la información
-    const post = await this.postRepository.findById(postId);
+    // 1. Buscar el post con toda la información CON userId
+    const post = await this.postRepository.findById(postId, userId);
     if (!post) {
       throw PostErrors.postNotFound(postId);
     }
 
-    // 2. TODO: Verificar permisos de lectura (canal privado, etc.)
-    // Por ahora: solo usuarios autenticados pueden ver posts
+    // 2. Verificar permisos de lectura para canales privados adicionales
+    if (post.channel?.isPrivate) {
+      // Aquí podrías agregar lógica adicional para verificar membresía del canal
+      // Por ahora, como es foro privado, todos los usuarios autenticados pueden ver
+    }
 
     // 3. Incrementar contador de vistas (async, no bloqueante)
     this.postRepository.incrementViews(postId).catch(error => {
@@ -102,6 +108,9 @@ export class GetPostDetail implements GetPostDetailUseCase {
         votes: post._count?.votes || 0,
         voteScore: post.voteScore || 0
       },
+      // ✅ CAMPOS DE VOTOS PRINCIPALES
+      voteScore: post.voteScore || 0,
+      userVote: post.userVote || null,
       permissions
     };
   }

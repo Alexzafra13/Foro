@@ -1,3 +1,4 @@
+// src/infrastructure/datasources/prisma-post.datasource.ts - CORREGIDO COMPLETO
 import { PrismaClient } from '@prisma/client';
 import { 
   PostDatasource, 
@@ -25,17 +26,22 @@ export class PrismaPostDatasource implements PostDatasource {
             comments: true,
             votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR TODOS LOS VOTOS
       }
     });
 
-    // Calcular voteScore si hay votos
-    const voteScore = await this.calculateVoteScore(post.id);
-
-    return PostEntity.fromObject({ ...post, voteScore });
+    // Calcular voteScore y userVote
+    const voteScore = this.calculateVoteScore(post.votes);
+    
+    return PostEntity.fromObject({ 
+      ...post, 
+      voteScore,
+      userVote: null // Para posts recién creados
+    });
   }
 
-  async findById(id: number): Promise<PostEntity | null> {
+  async findById(id: number, userId?: number): Promise<PostEntity | null> {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: {
@@ -48,21 +54,28 @@ export class PrismaPostDatasource implements PostDatasource {
             comments: true,
             votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR TODOS LOS VOTOS
       }
     });
 
     if (!post) return null;
 
-    // Calcular voteScore
-    const voteScore = await this.calculateVoteScore(post.id);
+    // ✅ CALCULAR voteScore Y userVote
+    const voteScore = this.calculateVoteScore(post.votes);
+    const userVote = userId ? this.getUserVote(post.votes, userId) : null;
 
-    return PostEntity.fromObject({ ...post, voteScore });
+    return PostEntity.fromObject({ 
+      ...post, 
+      voteScore,
+      userVote
+    });
   }
 
   async findMany(
     filters?: PostFilters,
-    pagination?: PaginationOptions
+    pagination?: PaginationOptions,
+    userId?: number // ✅ RECIBIR userId
   ): Promise<PaginatedResult<PostEntity>> {
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 20;
@@ -91,19 +104,24 @@ export class PrismaPostDatasource implements PostDatasource {
               comments: true,
               votes: true
             }
-          }
+          },
+          votes: true // ✅ INCLUIR TODOS LOS VOTOS
         }
       }),
       this.prisma.post.count({ where })
     ]);
 
-    // Calcular voteScore para cada post
-    const postsWithScores = await Promise.all(
-      posts.map(async (post) => {
-        const voteScore = await this.calculateVoteScore(post.id);
-        return PostEntity.fromObject({ ...post, voteScore });
-      })
-    );
+    // ✅ PROCESAR POSTS CON VOTOS
+    const postsWithScores = posts.map((post) => {
+      const voteScore = this.calculateVoteScore(post.votes);
+      const userVote = userId ? this.getUserVote(post.votes, userId) : null;
+      
+      return PostEntity.fromObject({ 
+        ...post, 
+        voteScore,
+        userVote
+      });
+    });
 
     // Calcular paginación
     const totalPages = Math.ceil(total / limit);
@@ -140,12 +158,18 @@ export class PrismaPostDatasource implements PostDatasource {
             comments: true,
             votes: true
           }
-        }
+        },
+        votes: true // ✅ INCLUIR VOTOS
       }
     });
 
-    const voteScore = await this.calculateVoteScore(post.id);
-    return PostEntity.fromObject({ ...post, voteScore });
+    const voteScore = this.calculateVoteScore(post.votes);
+    
+    return PostEntity.fromObject({ 
+      ...post, 
+      voteScore,
+      userVote: null // No necesitamos userVote en updates
+    });
   }
 
   async deleteById(id: number): Promise<PostEntity> {
@@ -165,16 +189,27 @@ export class PrismaPostDatasource implements PostDatasource {
       }
     });
 
-    return PostEntity.fromObject({ ...post, voteScore: 0 });
+    return PostEntity.fromObject({ ...post, voteScore: 0, userVote: null });
   }
 
   async incrementViews(id: number): Promise<void> {
-    // Por ahora no implementamos views, pero aquí se incrementaría
-    // Podrías agregar un campo `views` a la tabla Post en el futuro
+    // Por ahora no implementamos views
     console.log(`Incrementing views for post ${id}`);
   }
 
-  // Métodos privados auxiliares
+  // ✅ MÉTODOS AUXILIARES PARA VOTOS
+  private calculateVoteScore(votes: any[]): number {
+    if (!votes || votes.length === 0) return 0;
+    return votes.reduce((sum, vote) => sum + vote.voteType, 0);
+  }
+
+  private getUserVote(votes: any[], userId: number): 1 | -1 | null {
+    if (!votes || votes.length === 0) return null;
+    const userVote = votes.find(vote => vote.userId === userId);
+    return userVote ? userVote.voteType : null;
+  }
+
+  // Métodos privados auxiliares existentes
   private buildWhereClause(filters?: PostFilters) {
     const where: any = {};
 
@@ -234,14 +269,5 @@ export class PrismaPostDatasource implements PostDatasource {
     }
 
     return orderBy;
-  }
-
-  private async calculateVoteScore(postId: number): Promise<number> {
-    const result = await this.prisma.vote.aggregate({
-      where: { postId },
-      _sum: { voteType: true }
-    });
-
-    return result._sum.voteType || 0;
   }
 }

@@ -1,8 +1,12 @@
+// src/domain/use-cases/posts/get-posts.use-case.ts - CORREGIDO PARA FORO PRIVADO
 import { PostRepository } from '../../repositories/post.repository';
 import { PostFilters, PaginationOptions, PaginatedResult } from '../../datasources/post.datasource';
-import { ValidationErrors } from '../../../shared/errors';
+import { ValidationErrors, AuthErrors } from '../../../shared/errors';
 
 export interface GetPostsRequestDto {
+  // ✅ USUARIO REQUERIDO (foro privado)
+  userId: number;
+
   // Filtros
   channelId?: number;
   authorId?: number;
@@ -38,6 +42,9 @@ export interface PostSummaryDto {
     votes: number;
     voteScore: number;
   };
+  // ✅ CAMPOS DE VOTOS PRINCIPALES
+  voteScore: number;
+  userVote: 1 | -1 | null;
 }
 
 export interface GetPostsResponseDto {
@@ -60,12 +67,19 @@ export class GetPosts implements GetPostsUseCase {
   constructor(private readonly postRepository: PostRepository) {}
 
   async execute(dto: GetPostsRequestDto): Promise<GetPostsResponseDto> {
+    const { userId } = dto;
+
+    // ✅ VALIDAR AUTENTICACIÓN (foro privado)
+    if (!userId) {
+      throw AuthErrors.tokenRequired();
+    }
+
     // 1. Validar y normalizar parámetros
     const filters = this.buildFilters(dto);
     const pagination = this.buildPagination(dto);
 
-    // 2. Obtener posts del repositorio
-    const result = await this.postRepository.findMany(filters, pagination);
+    // 2. Obtener posts del repositorio CON userId
+    const result = await this.postRepository.findMany(filters, pagination, userId);
 
     // 3. Formatear respuesta
     return {
@@ -130,7 +144,10 @@ export class GetPosts implements GetPostsUseCase {
         comments: post._count?.comments || 0,
         votes: post._count?.votes || 0,
         voteScore: post.voteScore || 0
-      }
+      },
+      // ✅ CAMPOS DE VOTOS PRINCIPALES
+      voteScore: post.voteScore || 0,
+      userVote: post.userVote || null
     };
   }
 

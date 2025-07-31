@@ -1,4 +1,4 @@
-// src/presentation/controllers/post.controller.ts (CORREGIDO)
+// src/presentation/controllers/post.controller.ts - CORREGIDO PARA FORO PRIVADO
 import { Request, Response } from 'express';
 import { CreatePost } from '../../domain/use-cases/posts/create-post.use-case';
 import { GetPosts } from '../../domain/use-cases/posts/get-posts.use-case';
@@ -20,7 +20,7 @@ export class PostController {
   async create(req: Request, res: Response) {
     try {
       const { channelId, title, content } = req.body;
-      const authorId = req.user?.userId!; // ✅ Usar la extensión global de Express
+      const authorId = req.user?.userId!;
 
       const result = await this.createPost.execute({
         channelId: parseInt(channelId),
@@ -39,7 +39,7 @@ export class PostController {
     }
   }
 
-  // GET /api/posts - AHORA PRIVADO
+  // GET /api/posts - FORO PRIVADO: REQUIERE AUTENTICACIÓN
   async getMany(req: Request, res: Response) {
     try {
       const {
@@ -52,8 +52,11 @@ export class PostController {
         sortOrder
       } = req.query;
 
-      // ✅ Usuario autenticado requerido para ver posts
+      // ✅ USUARIO REQUERIDO (foro privado)
+      const userId = req.user?.userId!;
+
       const result = await this.getPosts.execute({
+        userId, // ✅ REQUERIDO
         channelId: channelId ? parseInt(channelId as string) : undefined,
         authorId: authorId ? parseInt(authorId as string) : undefined,
         search: search as string,
@@ -74,15 +77,15 @@ export class PostController {
     }
   }
 
-  // GET /api/posts/:id - AHORA PRIVADO
+  // GET /api/posts/:id - FORO PRIVADO: REQUIERE AUTENTICACIÓN
   async getById(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.id);
-      const userId = req.user?.userId!; // ✅ Usar la extensión global de Express
+      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
 
       const result = await this.getPostDetail.execute({
         postId,
-        userId
+        userId // ✅ REQUERIDO
       });
 
       res.json({

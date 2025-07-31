@@ -1,3 +1,4 @@
+// src/infrastructure/repositories/post.repository.impl.ts - ACTUALIZADO
 import { PostEntity } from '../../domain/entities/post.entity';
 import { PostRepository } from '../../domain/repositories/post.repository';
 import { 
@@ -16,15 +17,16 @@ export class PostRepositoryImpl implements PostRepository {
     return await this.postDatasource.create(createPostDto);
   }
 
-  async findById(id: number): Promise<PostEntity | null> {
-    return await this.postDatasource.findById(id);
+  async findById(id: number, userId?: number): Promise<PostEntity | null> {
+    return await this.postDatasource.findById(id, userId); // ✅ PASAR userId
   }
 
   async findMany(
     filters?: PostFilters,
-    pagination?: PaginationOptions
+    pagination?: PaginationOptions,
+    userId?: number // ✅ RECIBIR userId
   ): Promise<PaginatedResult<PostEntity>> {
-    return await this.postDatasource.findMany(filters, pagination);
+    return await this.postDatasource.findMany(filters, pagination, userId); // ✅ PASAR userId
   }
 
   async updateById(id: number, updateDto: UpdatePostDto): Promise<PostEntity> {

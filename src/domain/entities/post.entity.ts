@@ -1,3 +1,4 @@
+// src/domain/entities/post.entity.ts - ACTUALIZADA
 export class PostEntity {
   constructor(
     public id: number,
@@ -27,13 +28,15 @@ export class PostEntity {
       comments: number;
       votes: number;
     },
-    public voteScore?: number
+    // ✅ CAMPOS DE VOTOS AGREGADOS
+    public voteScore?: number,
+    public userVote?: 1 | -1 | null
   ) {}
 
   static fromObject(object: { [key: string]: any }): PostEntity {
     const {
       id, channelId, authorId, title, content, isLocked, isPinned,
-      createdAt, updatedAt, channel, author, _count, voteScore
+      createdAt, updatedAt, channel, author, _count, voteScore, userVote
     } = object;
 
     if (!id) throw new Error('Post id is required');
@@ -44,11 +47,12 @@ export class PostEntity {
     return new PostEntity(
       id, channelId, authorId, title, content,
       isLocked || false, isPinned || false,
-      createdAt, updatedAt, channel, author, _count, voteScore
+      createdAt, updatedAt, channel, author, _count, 
+      voteScore || 0, userVote || null // ✅ CAMPOS DE VOTOS
     );
   }
 
-  // Métodos de dominio
+  // Métodos de dominio existentes
   isAuthor(userId: number): boolean {
     return this.authorId === userId;
   }
@@ -62,5 +66,38 @@ export class PostEntity {
 
   canBeDeletedBy(userId: number, userRole: string): boolean {
     return this.isAuthor(userId) || ['admin', 'moderator'].includes(userRole);
+  }
+
+  // ✅ NUEVOS MÉTODOS PARA VOTOS
+  canBeVotedBy(userId: number): boolean {
+    if (this.isLocked) return false;
+    // No puedes votar tu propio post
+    return !this.isAuthor(userId);
+  }
+
+  hasUserVoted(userId: number): boolean {
+    // Esta información vendría del userVote
+    return this.userVote !== null && this.userVote !== undefined;
+  }
+
+  getUserVoteType(userId: number): 1 | -1 | null {
+    return this.userVote || null;
+  }
+
+  getVoteScore(): number {
+    return this.voteScore || 0;
+  }
+
+  // Método para obtener estadísticas completas
+  getVoteStats(): {
+    voteScore: number;
+    totalVotes: number;
+    userVote: 1 | -1 | null;
+  } {
+    return {
+      voteScore: this.voteScore || 0,
+      totalVotes: this._count?.votes || 0,
+      userVote: this.userVote || null
+    };
   }
 }

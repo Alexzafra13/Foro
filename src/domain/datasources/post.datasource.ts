@@ -1,3 +1,4 @@
+// src/domain/datasources/post.datasource.ts - ACTUALIZADA
 import { PostEntity } from '../entities/post.entity';
 
 export interface CreatePostDto {
@@ -43,10 +44,11 @@ export interface PaginatedResult<T> {
 
 export abstract class PostDatasource {
   abstract create(createPostDto: CreatePostDto): Promise<PostEntity>;
-  abstract findById(id: number): Promise<PostEntity | null>;
+  abstract findById(id: number, userId?: number): Promise<PostEntity | null>; // ✅ AGREGADO userId
   abstract findMany(
     filters?: PostFilters,
-    pagination?: PaginationOptions
+    pagination?: PaginationOptions,
+    userId?: number // ✅ AGREGADO userId
   ): Promise<PaginatedResult<PostEntity>>;
   abstract updateById(id: number, updateDto: UpdatePostDto): Promise<PostEntity>;
   abstract deleteById(id: number): Promise<PostEntity>;

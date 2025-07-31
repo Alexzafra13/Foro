@@ -1,3 +1,4 @@
+// src/domain/use-cases/posts/delete-post.use-case.ts - CORREGIDO
 import { PostRepository } from '../../repositories/post.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { PostErrors, UserErrors } from '../../../shared/errors';
@@ -18,6 +19,7 @@ interface DeletePostUseCase {
   execute(dto: DeletePostRequestDto): Promise<DeletePostResponseDto>;
 }
 
+// ✅ EXPORT AGREGADO
 export class DeletePost implements DeletePostUseCase {
   constructor(
     private readonly postRepository: PostRepository,

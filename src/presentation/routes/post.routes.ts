@@ -1,4 +1,4 @@
-// src/presentation/routes/post.routes.ts - COMPLETO
+// src/presentation/routes/post.routes.ts - CORREGIDAS PARA FORO PRIVADO
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
@@ -8,17 +8,17 @@ export class PostRoutes {
     const router = Router();
     const deps = await Dependencies.create();
    
-    // 📋 POSTS CRUD
+    // 📋 POSTS CRUD - TODAS REQUIEREN AUTENTICACIÓN (FORO PRIVADO)
     
     // Ver posts → /api/posts/
     router.get('/',
-      AuthMiddleware.validateToken,
+      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
       deps.controllers.postController.getMany.bind(deps.controllers.postController)
     );
    
     // Ver post individual → /api/posts/:id
     router.get('/:id',
-      AuthMiddleware.validateToken,
+      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
       deps.controllers.postController.getById.bind(deps.controllers.postController)
     );
     
@@ -50,7 +50,7 @@ export class PostRoutes {
    
     // Listar comentarios de post → /api/posts/:postId/comments
     router.get('/:postId/comments',
-      AuthMiddleware.optionalAuth,
+      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
       deps.controllers.commentController.getByPostId.bind(deps.controllers.commentController)
     );
 
