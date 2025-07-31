@@ -1,4 +1,4 @@
-// src/infrastructure/repositories/post.repository.impl.ts - ACTUALIZADO
+// src/infrastructure/repositories/post.repository.impl.ts - REEMPLAZAR COMPLETO
 import { PostEntity } from '../../domain/entities/post.entity';
 import { PostRepository } from '../../domain/repositories/post.repository';
 import { 
@@ -18,15 +18,15 @@ export class PostRepositoryImpl implements PostRepository {
   }
 
   async findById(id: number, userId?: number): Promise<PostEntity | null> {
-    return await this.postDatasource.findById(id, userId); // ✅ PASAR userId
+    return await this.postDatasource.findById(id, userId);
   }
 
   async findMany(
     filters?: PostFilters,
     pagination?: PaginationOptions,
-    userId?: number // ✅ RECIBIR userId
+    userId?: number
   ): Promise<PaginatedResult<PostEntity>> {
-    return await this.postDatasource.findMany(filters, pagination, userId); // ✅ PASAR userId
+    return await this.postDatasource.findMany(filters, pagination, userId);
   }
 
   async updateById(id: number, updateDto: UpdatePostDto): Promise<PostEntity> {
@@ -41,16 +41,16 @@ export class PostRepositoryImpl implements PostRepository {
     return await this.postDatasource.incrementViews(id);
   }
 
+  // ✅ NUEVOS MÉTODOS PARA ESTADÍSTICAS - CORREGIDOS
   async countByUserId(userId: number): Promise<number> {
-  return await this.datasource.countByUserId(userId);
-}
+    return await this.postDatasource.countByUserId(userId); // ✅ CORREGIDO: postDatasource
+  }
 
-async findByUserId(userId: number): Promise<PostEntity[]> {
-  const posts = await this.datasource.findByUserId(userId);
-  return posts.map(post => PostEntity.fromObject(post));
-}
+  async findByUserId(userId: number): Promise<PostEntity[]> {
+    return await this.postDatasource.findByUserId(userId); // ✅ CORREGIDO: postDatasource
+  }
 
-async getTotalVotesForUser(userId: number): Promise<number> {
-  return await this.datasource.getTotalVotesForUser(userId);
-}
+  async getTotalVotesForUser(userId: number): Promise<number> {
+    return await this.postDatasource.getTotalVotesForUser(userId); // ✅ CORREGIDO: postDatasource
+  }
 }

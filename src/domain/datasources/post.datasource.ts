@@ -53,4 +53,7 @@ export abstract class PostDatasource {
   abstract updateById(id: number, updateDto: UpdatePostDto): Promise<PostEntity>;
   abstract deleteById(id: number): Promise<PostEntity>;
   abstract incrementViews(id: number): Promise<void>;
+    abstract countByUserId(userId: number): Promise<number>;
+  abstract findByUserId(userId: number): Promise<PostEntity[]>;
+  abstract getTotalVotesForUser(userId: number): Promise<number>;
 }
