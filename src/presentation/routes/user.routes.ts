@@ -1,26 +1,17 @@
+// src/presentation/routes/user.routes.ts - LIMPIO Y SIN DUPLICADOS
 import { Router } from 'express';
-import { AuthMiddleware } from '../middlewares/auth.middleware';
 
 export class UserRoutes {
   static async getRoutes(): Promise<Router> {
     const router = Router();
     
-    // Ruta protegida - requiere autenticación
-    router.get('/profile', 
-      AuthMiddleware.validateToken,
-      async (req, res) => {
-        // req.user está disponible aquí gracias al middleware
-        res.json({
-          success: true,
-          data: {
-            userId: req.user?.userId,
-            email: req.user?.email,
-            message: 'This is a protected route!'
-          }
-        });
-      }
-    );
-
+    // ✅ ESTA CLASE ESTÁ RESERVADA PARA FUTURAS RUTAS DE USUARIOS
+    // Como: búsqueda de usuarios públicos, listado de usuarios, etc.
+    // Las rutas de perfil están en ProfileRoutes
+    
+    // Por ahora, no hay rutas aquí para evitar duplicados
+    // Si necesitas rutas de usuarios en el futuro, las agregas aquí
+    
     return router;
   }
 }

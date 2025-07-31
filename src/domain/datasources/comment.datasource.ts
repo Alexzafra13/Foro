@@ -80,4 +80,7 @@ export abstract class CommentDatasource {
     downvotes: number;
     repliesCount: number;
   }>;
+
+  abstract countByUserId(userId: number): Promise<number>;
+
 }

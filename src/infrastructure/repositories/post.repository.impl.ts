@@ -40,4 +40,17 @@ export class PostRepositoryImpl implements PostRepository {
   async incrementViews(id: number): Promise<void> {
     return await this.postDatasource.incrementViews(id);
   }
+
+  async countByUserId(userId: number): Promise<number> {
+  return await this.datasource.countByUserId(userId);
+}
+
+async findByUserId(userId: number): Promise<PostEntity[]> {
+  const posts = await this.datasource.findByUserId(userId);
+  return posts.map(post => PostEntity.fromObject(post));
+}
+
+async getTotalVotesForUser(userId: number): Promise<number> {
+  return await this.datasource.getTotalVotesForUser(userId);
+}
 }

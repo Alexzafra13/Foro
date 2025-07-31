@@ -192,6 +192,8 @@ export class PrismaPostDatasource implements PostDatasource {
     return PostEntity.fromObject({ ...post, voteScore: 0, userVote: null });
   }
 
+  
+
   async incrementViews(id: number): Promise<void> {
     // Por ahora no implementamos views
     console.log(`Incrementing views for post ${id}`);
@@ -270,4 +272,93 @@ export class PrismaPostDatasource implements PostDatasource {
 
     return orderBy;
   }
+
+    // Contar posts de un usuario
+  async countByUserId(userId: number): Promise<number> {
+    try {
+      return await this.prisma.post.count({
+        where: { 
+          authorId: userId,
+          isDeleted: false // Solo contar posts no eliminados
+        }
+      });
+    } catch (error) {
+      console.error('Error counting posts by user:', error);
+      throw new Error('Failed to count user posts');
+    }
+  }
+
+  // Obtener posts de un usuario
+  async findByUserId(userId: number): Promise<PostEntity[]> {
+    try {
+      const posts = await this.prisma.post.findMany({
+        where: { 
+          authorId: userId,
+          isDeleted: false
+        },
+        include: {
+          author: {
+            include: {
+              role: true
+            }
+          },
+          channel: {
+            include: {
+              category: true
+            }
+          },
+          _count: {
+            select: {
+              comments: {
+                where: { isDeleted: false }
+              },
+              votes: true
+            }
+          },
+          votes: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      return posts.map(post => {
+        const voteScore = this.calculateVoteScore(post.votes);
+        return PostEntity.fromObject({
+          ...post,
+          voteScore,
+          userVote: null // No se pasa userId aquí
+        });
+      });
+
+    } catch (error) {
+      console.error('Error finding posts by user:', error);
+      throw new Error('Failed to find user posts');
+    }
+  }
+
+  // Obtener total de votos recibidos por posts del usuario
+  async getTotalVotesForUser(userId: number): Promise<number> {
+    try {
+      const result = await this.prisma.vote.aggregate({
+        where: {
+          post: {
+            authorId: userId,
+            isDeleted: false
+          }
+        },
+        _sum: {
+          voteType: true
+        }
+      });
+
+     if (!result._sum || result._sum.voteType === null) return 0;
+     return result._sum.voteType;
+
+    } catch (error) {
+      console.error('Error calculating total votes for user:', error);
+      return 0; // No fallar, solo devolver 0
+    }
+  }
 }
+

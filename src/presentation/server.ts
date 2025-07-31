@@ -1,3 +1,4 @@
+// src/presentation/server.ts
 import express, { Application } from "express";
 import cors from "cors";
 
@@ -63,7 +64,7 @@ export class Server {
     const { CategoryRoutes } = await import("./routes/category.routes");
     const { ChannelRoutes } = await import("./routes/channel.routes");
     const { InviteRoutes } = await import("./routes/invite.routes");
-    const { VoteRoutes } = await import("./routes/vote.routes"); // ✅ NUEVO: Rutas de votos
+    const { VoteRoutes } = await import("./routes/vote.routes");
 
     // Registrar rutas de autenticación
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
@@ -74,13 +75,14 @@ export class Server {
     this.app.use("/api/users", await UserRoutes.getRoutes());
     this.app.use("/api/users", await ProfileRoutes.getRoutes());
 
-    // ✅ CAMBIO CRÍTICO: Registrar rutas de votos ANTES que las otras
-    // Esto evita conflictos con las rutas de posts y comentarios
+    // 🔥 CORRECCIÓN CRÍTICA: Registrar rutas de comentarios con prefijo específico
+    this.app.use("/api/comments", await CommentRoutes.getRoutes());
+
+    // Registrar rutas de votos (pueden ir después ahora)
     this.app.use("/api", await VoteRoutes.getRoutes());
 
     // Registrar rutas de contenido
     this.app.use("/api/posts", await PostRoutes.getRoutes());
-    this.app.use("/api", await CommentRoutes.getRoutes());
     
     // Registrar rutas de estructura
     this.app.use("/api/categories", await CategoryRoutes.getRoutes());
@@ -89,7 +91,7 @@ export class Server {
     // Registrar rutas de invitaciones
     this.app.use("/api/invites", await InviteRoutes.getRoutes());
 
-    // 404 handler
+    // 404 handler - DEBE IR AL FINAL
     this.app.use((req, res) => {
       res.status(404).json({
         success: false,
@@ -115,7 +117,7 @@ export class Server {
           console.log(`   Users: /api/users/*`);
           console.log(`   Posts: /api/posts/*`);
           console.log(`   Comments: /api/posts/:id/comments, /api/comments/*`);
-          console.log(`   Votes: /api/posts/:id/vote, /api/comments/:id/vote`); // ✅ NUEVO
+          console.log(`   Votes: /api/posts/:id/vote, /api/comments/:id/vote`);
           console.log(`   Categories: /api/categories`);
           console.log(`   Channels: /api/channels/*`);
           console.log(`   Invites: /api/invites/*`);

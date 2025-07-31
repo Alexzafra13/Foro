@@ -61,4 +61,8 @@ export class CommentRepositoryImpl implements CommentRepository {
   }> {
     return await this.commentDatasource.getCommentStats(commentId);
   }
+
+  async countByUserId(userId: number): Promise<number> {
+  return await this.commentDatasource.countByUserId(userId);
+}
 }

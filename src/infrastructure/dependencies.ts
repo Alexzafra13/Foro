@@ -168,9 +168,11 @@ export class Dependencies {
     );
 
     // ✅ NUEVOS USE CASES - PERFIL
-    const getProfile = new GetProfile(
+     const getProfile = new GetProfile(
       userRepository,
-      userSettingsRepository
+      userSettingsRepository,
+      postRepository,        // ✅ AGREGAR
+      commentRepository      // ✅ AGREGAR
     );
 
     const updateProfile = new UpdateProfile(

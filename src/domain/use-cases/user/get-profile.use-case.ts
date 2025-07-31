@@ -1,6 +1,8 @@
-// src/domain/use-cases/user/get-profile.use-case.ts
+// src/domain/use-cases/user/get-profile.use-case.ts - REEMPLAZAR COMPLETO
 import { UserRepository } from '../../repositories/user.repository';
 import { UserSettingsRepository } from '../../repositories/user-settings.repository';
+import { PostRepository } from '../../repositories/post.repository';
+import { CommentRepository } from '../../repositories/comment.repository';
 import { UserErrors } from '../../../shared/errors';
 
 export interface GetProfileRequestDto {
@@ -56,7 +58,9 @@ interface GetProfileUseCase {
 export class GetProfile implements GetProfileUseCase {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly userSettingsRepository: UserSettingsRepository
+    private readonly userSettingsRepository: UserSettingsRepository,
+    private readonly postRepository: PostRepository,
+    private readonly commentRepository: CommentRepository
   ) {}
 
   async execute(dto: GetProfileRequestDto): Promise<UserProfileDto> {
@@ -146,17 +150,32 @@ export class GetProfile implements GetProfileUseCase {
 
   private async getUserStats(user: any): Promise<UserStatsDto> {
     try {
-      // TODO: Implementar queries específicas para estadísticas
-      // Por ahora, retornar estadísticas básicas
+      // ✅ ESTADÍSTICAS REALES DE LA BASE DE DATOS
       
+      // 1. Contar posts del usuario
+      const totalPosts = await this.postRepository.countByUserId(user.id);
+      
+      // 2. Contar comentarios del usuario  
+      const totalComments = await this.commentRepository.countByUserId(user.id);
+      
+      // 3. Calcular días desde registro
       const joinedDate = new Date(user.createdAt);
       const now = new Date();
       const joinedDaysAgo = Math.floor((now.getTime() - joinedDate.getTime()) / (1000 * 60 * 60 * 24));
 
+      // 4. Calcular votos recibidos (suma de votos en posts)
+      let totalVotes = 0;
+      try {
+        totalVotes = await this.postRepository.getTotalVotesForUser(user.id);
+      } catch (error) {
+        console.error('Error calculating votes:', error);
+        totalVotes = 0;
+      }
+
       return {
-        totalPosts: 0, // TODO: Contar posts del usuario
-        totalComments: 0, // TODO: Contar comentarios del usuario
-        totalVotes: 0, // TODO: Contar votos recibidos
+        totalPosts,
+        totalComments,
+        totalVotes,
         joinedDaysAgo,
         lastActivityAt: user.lastLoginAt
       };

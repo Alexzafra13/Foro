@@ -423,4 +423,18 @@ export class PrismaCommentDatasource implements CommentDatasource {
         return { [pagination.sortBy]: sortOrder };
     }
   }
+
+  async countByUserId(userId: number): Promise<number> {
+  try {
+    return await this.prisma.comment.count({
+      where: { 
+        authorId: userId,
+        isDeleted: false
+      }
+    });
+  } catch (error) {
+    console.error('Error counting comments by user:', error);
+    throw new Error('Failed to count user comments');
+  }
+}
 }
