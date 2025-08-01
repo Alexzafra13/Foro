@@ -85,6 +85,11 @@ import { PasswordResetController } from "../presentation/controllers/password-re
 // ✅ NUEVO CONTROLLER PARA VOTOS
 import { VoteController } from "../presentation/controllers/vote.controller";
 
+// ✅ NUEVOS IMPORTS PARA INVITES
+import { GetInviteCodes } from "../domain/use-cases/invites/get-invite-codes.use-case";
+import { DeleteInviteCode } from "../domain/use-cases/invites/delete-invite-code.use-case";
+import { GetInviteStats } from "../domain/use-cases/invites/get-invite-stats.use-case";
+
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
 
@@ -250,6 +255,19 @@ export class Dependencies {
     );
     const validateInviteCode = new ValidateInviteCode(inviteCodeRepository);
 
+    const getInviteCodes = new GetInviteCodes(
+      inviteCodeRepository,
+      userRepository
+    );
+    const deleteInviteCode = new DeleteInviteCode(
+      inviteCodeRepository,
+      userRepository
+    );
+    const getInviteStats = new GetInviteStats(
+      inviteCodeRepository,
+      userRepository
+    );
+
     // Controllers existentes
     const authController = new AuthController(registerUser, loginUser);
     const postController = new PostController(
@@ -268,9 +286,12 @@ export class Dependencies {
       deleteComment
     );
     
-    const inviteController = new InviteController(
+     const inviteController = new InviteController(
       generateInviteCode,
-      validateInviteCode
+      validateInviteCode,
+      getInviteCodes,      
+      deleteInviteCode,    
+      getInviteStats      
     );
     const emailVerificationController = new EmailVerificationController(
       verifyEmail,
@@ -364,6 +385,9 @@ export class Dependencies {
         // Invites existentes
         generateInviteCode,
         validateInviteCode,
+        getInviteCodes,     
+        deleteInviteCode,    
+        getInviteStats,
 
         // Email existentes
         sendVerificationEmail,

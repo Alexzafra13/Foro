@@ -17,4 +17,6 @@ export abstract class InviteCodeRepository {
     available: number;
     expired: number;
   }>;
+
+  
 }

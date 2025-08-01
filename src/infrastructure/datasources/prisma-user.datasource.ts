@@ -9,6 +9,7 @@ interface UpdateUserData {
   reputation?: number;
   roleId?: number;
   avatarUrl?: string | null;
+  bio?: string | null;  // ✅ AGREGAR ESTA LÍNEA
 }
 
 export class PrismaUserDatasource implements UserDatasource {
@@ -60,6 +61,7 @@ export class PrismaUserDatasource implements UserDatasource {
     ...(data.reputation !== undefined && { reputation: data.reputation }),
     ...(data.roleId !== undefined && { roleId: data.roleId }),
     ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+    ...(data.bio !== undefined && { bio: data.bio }), // ✅ AGREGAR ESTA LÍNEA
   };
 
   const user = await this.prisma.user.update({
@@ -70,7 +72,6 @@ export class PrismaUserDatasource implements UserDatasource {
 
   return UserEntity.fromObject(user);
 }
-
   async deleteById(id: number): Promise<UserEntity> {
     const user = await this.prisma.user.delete({
       where: { id },
