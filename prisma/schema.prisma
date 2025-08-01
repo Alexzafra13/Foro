@@ -67,6 +67,7 @@ model User {
   bannedByUser         User?                    @relation("UserBans", fields: [bannedBy], references: [id], onDelete: SetNull)
   usersBanned          User[]                   @relation("UserBans")
   passwordResetTokens  PasswordResetToken[]
+  postViews PostView[]
 
   @@map("users")
 }
@@ -196,8 +197,32 @@ model Post {
   author   User?     @relation("PostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   comments Comment[]
   votes    Vote[]
+  postViews PostView[]
 
   @@map("posts")
+}
+
+// ========================================
+// SISTEMA DE TRACKING DE VISTAS
+// ========================================
+
+model PostView {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  postId    Int      @map("post_id")
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.Text
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Un usuario solo puede registrar una vista por post por día
+  @@unique([userId, postId])
+  @@index([postId, viewedAt])
+  @@index([userId, viewedAt])
+  @@map("post_views")
 }
 
 model Comment {

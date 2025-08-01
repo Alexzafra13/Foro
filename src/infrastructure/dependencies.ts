@@ -15,6 +15,7 @@ import { PrismaActivityLogDatasource } from "./datasources/prisma-activity-log.d
 import { PrismaPasswordResetTokenDatasource } from "./datasources/prisma-password-reset-token.datasource";
 import { PrismaVoteDatasource } from "./datasources/prisma-vote.datasource";
 import { PrismaCommentVoteDatasource } from "./datasources/prisma-comment-vote.datasource";
+import { PrismaPostViewDatasource } from "./datasources/prisma-post-view.datasource";
 
 // Repositories
 import { UserRepositoryImpl } from "./repositories/user.repository.impl";
@@ -29,6 +30,7 @@ import { ActivityLogRepositoryImpl } from "./repositories/activity-log.repositor
 import { PasswordResetTokenRepositoryImpl } from "./repositories/password-reset-token.repository.impl";
 import { VoteRepositoryImpl } from "./repositories/vote.repository.impl";
 import { CommentVoteRepositoryImpl } from "./repositories/comment-vote.repository.impl";
+import { PostViewRepositoryImpl } from "./repositories/post-view.repository.impl";
 
 // Use Cases - Auth
 import { RegisterUser } from "../domain/use-cases/auth/register-user.use-case";
@@ -74,6 +76,9 @@ import { GetUserSettings, UpdateUserSettings } from '../domain/use-cases/user/up
 import { VotePost } from "../domain/use-cases/votes/vote-post.use-case";
 import { VoteComment } from "../domain/use-cases/votes/vote-comment.use-case";
 
+// Use Cases - Posts Views
+import { TrackPostView } from "../domain/use-cases/post-views/track-post-view.use-case";
+
 // Controllers
 import { AuthController } from "../presentation/controllers/auth.controller";
 import { PostController } from "../presentation/controllers/post.controller";
@@ -108,6 +113,7 @@ export class Dependencies {
     const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(prisma);
     const voteDatasource = new PrismaVoteDatasource(prisma);
     const commentVoteDatasource = new PrismaCommentVoteDatasource(prisma);
+    const postViewDatasource = new PrismaPostViewDatasource(prisma);
 
     // ===== REPOSITORIES =====
     const userRepository = new UserRepositoryImpl(userDatasource);
@@ -122,6 +128,7 @@ export class Dependencies {
     const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(passwordResetTokenDatasource);
     const voteRepository = new VoteRepositoryImpl(voteDatasource);
     const commentVoteRepository = new CommentVoteRepositoryImpl(commentVoteDatasource);
+    const postViewRepository = new PostViewRepositoryImpl(postViewDatasource);
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
@@ -196,7 +203,8 @@ export class Dependencies {
     // ===== USE CASES - POSTS =====
     const createPost = new CreatePost(postRepository, userRepository);
     const getPosts = new GetPosts(postRepository);
-    const getPostDetail = new GetPostDetail(postRepository);
+    const trackPostView = new TrackPostView(postViewRepository, postRepository);
+    const getPostDetail = new GetPostDetail(postRepository, trackPostView);
     const updatePost = new UpdatePost(postRepository, userRepository);
     const deletePost = new DeletePost(postRepository, userRepository);
 
@@ -225,6 +233,8 @@ export class Dependencies {
     const deleteInviteCode = new DeleteInviteCode(inviteCodeRepository, userRepository);
     const getInviteStats = new GetInviteStats(inviteCodeRepository, userRepository);
 
+   
+
     // ===== CONTROLLERS =====
     const authController = new AuthController(registerUser, loginUser);
 
@@ -233,7 +243,8 @@ export class Dependencies {
       getPosts,
       getPostDetail,
       updatePost,
-      deletePost
+      deletePost,
+      trackPostView
     );
 
     const commentController = new CommentController(
@@ -292,6 +303,7 @@ export class Dependencies {
         activityLogRepository,
         passwordResetTokenRepository,
         voteRepository,
+        postViewRepository,
         commentVoteRepository,
       },
 
@@ -318,6 +330,7 @@ export class Dependencies {
         getPostDetail,
         updatePost,
         deletePost,
+        trackPostView,
 
         // Comments
         createComment,

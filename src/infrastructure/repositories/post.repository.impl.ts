@@ -53,4 +53,8 @@ export class PostRepositoryImpl implements PostRepository {
   async getTotalVotesForUser(userId: number): Promise<number> {
     return await this.postDatasource.getTotalVotesForUser(userId); // ✅ CORREGIDO: postDatasource
   }
+
+  async updateViews(id: number, views: number): Promise<void> {
+  return await this.postDatasource.updateViews(id, views);
+}
 }

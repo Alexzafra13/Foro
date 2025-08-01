@@ -1,11 +1,14 @@
 // src/domain/use-cases/posts/get-post-detail.use-case.ts - ACTUALIZADO CON avatarUrl
-import { PostRepository } from '../../repositories/post.repository';
-import { PostEntity } from '../../entities/post.entity'; 
-import { PostErrors, AuthErrors } from '../../../shared/errors';
+import { PostRepository } from "../../repositories/post.repository";
+import { PostEntity } from "../../entities/post.entity";
+import { PostErrors, AuthErrors } from "../../../shared/errors";
+import { TrackPostView } from '../post-views/track-post-view.use-case';
 
 export interface GetPostDetailRequestDto {
   postId: number;
-  userId: number; // ✅ REQUERIDO (foro privado)
+  userId: number;
+  ipAddress?: string;  // ✅ AGREGAR
+  userAgent?: string;  // ✅ AGREGAR
 }
 
 export interface PostDetailResponseDto {
@@ -53,69 +56,78 @@ interface GetPostDetailUseCase {
 }
 
 export class GetPostDetail implements GetPostDetailUseCase {
-  constructor(private readonly postRepository: PostRepository) {}
+  constructor(
+    private readonly postRepository: PostRepository,
+    private readonly trackPostView: TrackPostView // ✅ AGREGAR
+  ) {}
 
-  async execute(dto: GetPostDetailRequestDto): Promise<PostDetailResponseDto> {
-    const { postId, userId } = dto;
+ async execute(dto: GetPostDetailRequestDto): Promise<PostDetailResponseDto> {
+  const { postId, userId, ipAddress, userAgent } = dto;
 
-    // ✅ VALIDAR AUTENTICACIÓN (foro privado)
-    if (!userId) {
-      throw AuthErrors.tokenRequired();
-    }
+  // ✅ VALIDAR AUTENTICACIÓN (foro privado)
+  if (!userId) {
+    throw AuthErrors.tokenRequired();
+  }
 
-    // 1. Buscar el post con toda la información CON userId
-    const post = await this.postRepository.findById(postId, userId);
-    if (!post) {
-      throw PostErrors.postNotFound(postId);
-    }
+  // 1. Buscar el post con toda la información CON userId
+  const post = await this.postRepository.findById(postId, userId);
+  if (!post) {
+    throw PostErrors.postNotFound(postId);
+  }
 
-    // 2. Verificar permisos de lectura para canales privados adicionales
-    if (post.channel?.isPrivate) {
-      // Aquí podrías agregar lógica adicional para verificar membresía del canal
-      // Por ahora, como es foro privado, todos los usuarios autenticados pueden ver
-    }
+  // 2. Verificar permisos de lectura para canales privados adicionales
+  if (post.channel?.isPrivate) {
+    // Aquí podrías agregar lógica adicional para verificar membresía del canal
+    // Por ahora, como es foro privado, todos los usuarios autenticados pueden ver
+  }
 
-    // 3. Incrementar contador de vistas (async, no bloqueante)
-    this.postRepository.incrementViews(postId).catch(error => {
-      console.error('Error incrementing post views:', error);
-    });
+  // 3. Trackear vista del usuario (async, no bloqueante)
+  this.trackPostView.execute({
+    userId,
+    postId,
+    ipAddress,
+    userAgent
+  }).catch((error: any) => {  // ✅ Tipar el error explícitamente
+    console.error('Error tracking post view:', error);
+  });
 
-    // 4. Calcular permisos del usuario actual
-    const permissions = this.calculatePermissions(post, userId);
-
+  // 4. Calcular permisos del usuario actual
+  const permissions = this.calculatePermissions(post, userId);
     // 5. Formatear y retornar respuesta
     return {
-  id: post.id,
-  channelId: post.channelId,
-  title: post.title,
-  content: post.content,
-  views: post.views || 0, // ✅ INCLUIR VIEWS
-  isLocked: post.isLocked,
-  isPinned: post.isPinned,
-  createdAt: post.createdAt,
-  updatedAt: post.updatedAt,
-  author: post.author ? {
-    id: post.author.id,
-    username: post.author.username,
-    reputation: post.author.reputation,
-    avatarUrl: post.author.avatarUrl || null,
-    role: post.author.role
-  } : null,
-  channel: {
-    id: post.channel!.id,
-    name: post.channel!.name,
-    isPrivate: post.channel!.isPrivate
-  },
-  stats: {
-    comments: post._count?.comments || 0,
-    votes: post._count?.votes || 0,
-    voteScore: post.voteScore || 0,
-    views: post.views || 0 // ✅ INCLUIR VIEWS EN STATS
-  },
-  voteScore: post.voteScore || 0,
-  userVote: post.userVote || null,
-  permissions
-};
+      id: post.id,
+      channelId: post.channelId,
+      title: post.title,
+      content: post.content,
+      views: post.views || 0, // ✅ INCLUIR VIEWS
+      isLocked: post.isLocked,
+      isPinned: post.isPinned,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      author: post.author
+        ? {
+            id: post.author.id,
+            username: post.author.username,
+            reputation: post.author.reputation,
+            avatarUrl: post.author.avatarUrl || null,
+            role: post.author.role,
+          }
+        : null,
+      channel: {
+        id: post.channel!.id,
+        name: post.channel!.name,
+        isPrivate: post.channel!.isPrivate,
+      },
+      stats: {
+        comments: post._count?.comments || 0,
+        votes: post._count?.votes || 0,
+        voteScore: post.voteScore || 0,
+        views: post.views || 0, // ✅ INCLUIR VIEWS EN STATS
+      },
+      voteScore: post.voteScore || 0,
+      userVote: post.userVote || null,
+      permissions,
+    };
   }
 
   private calculatePermissions(post: PostEntity, userId: number) {
@@ -126,7 +138,7 @@ export class GetPostDetail implements GetPostDetailUseCase {
       canEdit: isAuthor && canInteract,
       canDelete: isAuthor, // Los autores siempre pueden eliminar
       canVote: !isAuthor && canInteract, // No puedes votar tus propios posts
-      canComment: canInteract
+      canComment: canInteract,
     };
   }
 }

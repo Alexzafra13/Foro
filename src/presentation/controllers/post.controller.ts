@@ -1,10 +1,11 @@
-// src/presentation/controllers/post.controller.ts - CORREGIDO PARA FORO PRIVADO
+// src/presentation/controllers/post.controller.ts - ACTUALIZADO CON TRACKING DE VISTAS
 import { Request, Response } from 'express';
 import { CreatePost } from '../../domain/use-cases/posts/create-post.use-case';
 import { GetPosts } from '../../domain/use-cases/posts/get-posts.use-case';
 import { GetPostDetail } from '../../domain/use-cases/posts/get-post-detail.use-case';
 import { UpdatePost } from '../../domain/use-cases/posts/update-post.use-case';
 import { DeletePost } from '../../domain/use-cases/posts/delete-post.use-case';
+import { TrackPostView } from '../../domain/use-cases/post-views/track-post-view.use-case';
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class PostController {
@@ -13,7 +14,8 @@ export class PostController {
     private readonly getPosts: GetPosts,
     private readonly getPostDetail: GetPostDetail,
     private readonly updatePost: UpdatePost,
-    private readonly deletePost: DeletePost
+    private readonly deletePost: DeletePost,
+    private readonly trackPostView: TrackPostView // ✅ NUEVO
   ) {}
 
   // POST /api/posts
@@ -52,11 +54,10 @@ export class PostController {
         sortOrder
       } = req.query;
 
-      // ✅ USUARIO REQUERIDO (foro privado)
       const userId = req.user?.userId!;
 
       const result = await this.getPosts.execute({
-        userId, // ✅ REQUERIDO
+        userId,
         channelId: channelId ? parseInt(channelId as string) : undefined,
         authorId: authorId ? parseInt(authorId as string) : undefined,
         search: search as string,
@@ -77,15 +78,35 @@ export class PostController {
     }
   }
 
-  // GET /api/posts/:id - FORO PRIVADO: REQUIERE AUTENTICACIÓN
+  // GET /api/posts/:id - FORO PRIVADO: REQUIERE AUTENTICACIÓN CON TRACKING DE VISTAS
   async getById(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.id);
-      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
+      const userId = req.user?.userId!;
 
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
+      // 1. Obtener el post
       const result = await this.getPostDetail.execute({
         postId,
-        userId // ✅ REQUERIDO
+        userId
+      });
+
+      // 2. Trackear vista del usuario (async, no bloqueante)
+      this.trackPostView.execute({
+        userId,
+        postId,
+        ipAddress: this.getClientIP(req),
+        userAgent: req.headers['user-agent']
+      }).catch(error => {
+        console.error(`Error tracking view for post ${postId} by user ${userId}:`, error);
+        // No fallar la respuesta por error de tracking
       });
 
       res.json({
@@ -102,16 +123,22 @@ export class PostController {
   async update(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.id);
+      const { title, content } = req.body;
       const userId = req.user?.userId!;
-      const { title, content, isLocked, isPinned } = req.body;
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
 
       const result = await this.updatePost.execute({
         postId,
-        userId,
         title,
         content,
-        isLocked,
-        isPinned
+        userId
       });
 
       res.json({
@@ -130,6 +157,14 @@ export class PostController {
       const postId = parseInt(req.params.id);
       const userId = req.user?.userId!;
 
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
       const result = await this.deletePost.execute({
         postId,
         userId
@@ -145,29 +180,74 @@ export class PostController {
     }
   }
 
-  private handleError(error: any, res: Response, logMessage: string) {
-    console.error(logMessage, error);
-    
-    if (error instanceof DomainError) {
-      return res.status(error.statusCode).json({
+  // ✅ NUEVO: Endpoint específico para obtener estadísticas de vistas
+  async getViewStats(req: Request, res: Response) {
+    try {
+      const postId = parseInt(req.params.id);
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
+      // Solo administradores pueden ver estadísticas detalladas
+      const userRole = req.user?.role?.name;
+      if (!['admin', 'moderator'].includes(userRole || '')) {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions to view detailed stats',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        });
+      }
+
+      const stats = await this.trackPostView.getPostViewStats(postId);
+
+      res.json({
+        success: true,
+        data: stats,
+        message: 'View statistics retrieved successfully'
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error fetching view statistics');
+    }
+  }
+
+  // Métodos auxiliares privados
+  private getClientIP(req: Request): string {
+    return (
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+      req.connection.remoteAddress ||
+      req.socket.remoteAddress ||
+      'unknown'
+    );
+  }
+
+  private handleError(error: unknown, res: Response, defaultMessage: string) {
+    console.error(defaultMessage, error);
+
+    if (error instanceof CustomError || error instanceof DomainError) {
+      return res.status(error.statusCode || 400).json({
         success: false,
         error: error.message,
-        code: error.name
+        code: error.code || 'DOMAIN_ERROR'
       });
     }
-    
-    if (error instanceof CustomError) {
-      return res.status(error.statusCode).json({
+
+    if (error instanceof Error) {
+      return res.status(500).json({
         success: false,
         error: error.message,
-        code: error.name
+        code: 'INTERNAL_ERROR'
       });
     }
-    
-    return res.status(500).json({
+
+    res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
+      error: defaultMessage,
+      code: 'UNKNOWN_ERROR'
     });
   }
 }

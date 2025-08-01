@@ -290,6 +290,12 @@ export class PrismaPostDatasource implements PostDatasource {
     });
     return result;
   }
+  async updateViews(id: number, views: number): Promise<void> {
+  await this.prisma.post.update({
+    where: { id },
+    data: { views }
+  });
+}
 
   // Métodos auxiliares privados
   private buildWhereClause(filters?: PostFilters): any {

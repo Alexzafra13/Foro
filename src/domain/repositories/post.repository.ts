@@ -25,4 +25,5 @@ export abstract class PostRepository {
   abstract countByUserId(userId: number): Promise<number>;
   abstract findByUserId(userId: number): Promise<PostEntity[]>;
   abstract getTotalVotesForUser(userId: number): Promise<number>;
+  abstract updateViews(id: number, views: number): Promise<void>;
 }

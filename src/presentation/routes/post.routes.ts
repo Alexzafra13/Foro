@@ -1,4 +1,4 @@
-// src/presentation/routes/post.routes.ts - CORREGIDAS PARA FORO PRIVADO
+// src/presentation/routes/post.routes.ts - ACTUALIZADO CON ESTADÍSTICAS DE VISTAS
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
@@ -12,14 +12,20 @@ export class PostRoutes {
     
     // Ver posts → /api/posts/
     router.get('/',
-      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
+      AuthMiddleware.validateToken,
       deps.controllers.postController.getMany.bind(deps.controllers.postController)
     );
    
     // Ver post individual → /api/posts/:id
     router.get('/:id',
-      AuthMiddleware.validateToken, // ✅ REQUERIDO (foro privado)
+      AuthMiddleware.validateToken,
       deps.controllers.postController.getById.bind(deps.controllers.postController)
+    );
+    
+    // ✅ NUEVO: Ver estadísticas de vistas de un post → /api/posts/:id/stats
+    router.get('/:id/stats',
+      AuthMiddleware.validateToken,
+      deps.controllers.postController.getViewStats.bind(deps.controllers.postController)
     );
     
     // Crear post → /api/posts/
@@ -50,7 +56,7 @@ export class PostRoutes {
    
     // Listar comentarios de post → /api/posts/:postId/comments
     router.get('/:postId/comments',
-      AuthMiddleware.validateToken, // ✅ CAMBIAR A REQUERIDO (foro privado)
+      AuthMiddleware.validateToken,
       deps.controllers.commentController.getByPostId.bind(deps.controllers.commentController)
     );
 
