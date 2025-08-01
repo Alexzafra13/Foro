@@ -1,11 +1,12 @@
-// src/presentation/controllers/invite.controller.ts - ACTUALIZADO COMPLETO
+// src/presentation/controllers/invite.controller.ts - CORREGIDO
 
 import { Request, Response } from 'express';
 import { GenerateInviteCode } from '../../domain/use-cases/invites/generate-invite-code.use-case';
 import { ValidateInviteCode } from '../../domain/use-cases/invites/validate-invite-code.use-case';
-import { GetInviteCodes } from '@/domain/use-cases/invites/get-invite-codes.use-case'; 
-import { DeleteInviteCode } from '@/domain/use-cases/invites/delete-invite-code.use-case'; 
-import { GetInviteStats } from '@/domain/use-cases/invites/get-invite-stats.use-case'; 
+// ✅ IMPORTS CORREGIDOS - SIN @/ 
+import { GetInviteCodes } from '../../domain/use-cases/invites/get-invite-codes.use-case'; 
+import { DeleteInviteCode } from '../../domain/use-cases/invites/delete-invite-code.use-case'; 
+import { GetInviteStats } from '../../domain/use-cases/invites/get-invite-stats.use-case'; 
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class InviteController {
@@ -63,7 +64,7 @@ export class InviteController {
     }
   }
 
-  // ✅ NUEVO: GET /api/invites (Solo admin/moderator)
+  // ✅ GET /api/invites (Solo admin/moderator)
   async getList(req: Request, res: Response) {
     try {
       const userId = req.user?.userId!;
@@ -94,7 +95,7 @@ export class InviteController {
     }
   }
 
-  // ✅ NUEVO: DELETE /api/invites/:code (Solo admin)
+  // ✅ DELETE /api/invites/:code (Solo admin)
   async delete(req: Request, res: Response) {
     try {
       const { code } = req.params;
@@ -115,7 +116,7 @@ export class InviteController {
     }
   }
 
-  // ✅ NUEVO: GET /api/invites/stats (Solo admin/moderator)
+  // ✅ GET /api/invites/stats (Solo admin/moderator)
   async getStats(req: Request, res: Response) {
     try {
       const userId = req.user?.userId!;

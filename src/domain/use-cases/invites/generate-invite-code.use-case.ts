@@ -1,4 +1,6 @@
-import { InviteCodeRepository } from '@/domain/repositories/invite-code.repository';
+// src/domain/use-cases/invites/generate-invite-code.use-case.ts - COMPLETO
+
+import { InviteCodeRepository } from '../../repositories/invite-code.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { UserErrors, ValidationErrors } from '../../../shared/errors';
 

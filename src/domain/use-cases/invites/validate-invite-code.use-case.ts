@@ -1,3 +1,5 @@
+// src/domain/use-cases/invites/validate-invite-code.use-case.ts - COMPLETO
+
 import { InviteCodeRepository } from '../../repositories/invite-code.repository';
 import { ValidationErrors, InviteCodeErrors } from '../../../shared/errors';
 
