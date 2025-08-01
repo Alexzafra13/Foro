@@ -1,4 +1,4 @@
-// src/domain/entities/post.entity.ts - ACTUALIZADA CON avatarUrl
+// src/domain/entities/post.entity.ts - VERSIÓN FINAL COMPLETA
 export class PostEntity {
   constructor(
     public id: number,
@@ -6,6 +6,7 @@ export class PostEntity {
     public authorId: number | null,
     public title: string,
     public content: string,
+    public views: number, // ✅ AGREGAR VIEWS
     public isLocked: boolean,
     public isPinned: boolean,
     public createdAt: Date,
@@ -29,14 +30,13 @@ export class PostEntity {
       comments: number;
       votes: number;
     },
-    // ✅ CAMPOS DE VOTOS AGREGADOS
     public voteScore?: number,
     public userVote?: 1 | -1 | null
   ) {}
 
   static fromObject(object: { [key: string]: any }): PostEntity {
     const {
-      id, channelId, authorId, title, content, isLocked, isPinned,
+      id, channelId, authorId, title, content, views, isLocked, isPinned,
       createdAt, updatedAt, channel, author, _count, voteScore, userVote
     } = object;
 
@@ -47,13 +47,14 @@ export class PostEntity {
 
     return new PostEntity(
       id, channelId, authorId, title, content,
+      views || 0, // ✅ INCLUIR VIEWS CON DEFAULT 0
       isLocked || false, isPinned || false,
       createdAt, updatedAt, channel, author, _count, 
-      voteScore || 0, userVote || null // ✅ CAMPOS DE VOTOS
+      voteScore || 0, userVote || null
     );
   }
 
-  // Métodos de dominio existentes
+  // Métodos existentes...
   isAuthor(userId: number): boolean {
     return this.authorId === userId;
   }
@@ -69,15 +70,12 @@ export class PostEntity {
     return this.isAuthor(userId) || ['admin', 'moderator'].includes(userRole);
   }
 
-  // ✅ NUEVOS MÉTODOS PARA VOTOS
   canBeVotedBy(userId: number): boolean {
     if (this.isLocked) return false;
-    // No puedes votar tu propio post
     return !this.isAuthor(userId);
   }
 
   hasUserVoted(userId: number): boolean {
-    // Esta información vendría del userVote
     return this.userVote !== null && this.userVote !== undefined;
   }
 
@@ -89,20 +87,28 @@ export class PostEntity {
     return this.voteScore || 0;
   }
 
+  // ✅ MÉTODOS PARA VIEWS
+  getViews(): number {
+    return this.views || 0;
+  }
+
   // Método para obtener estadísticas completas
-  getVoteStats(): {
+  getStats(): {
+    views: number;
     voteScore: number;
     totalVotes: number;
+    totalComments: number;
     userVote: 1 | -1 | null;
   } {
     return {
+      views: this.views || 0,
       voteScore: this.voteScore || 0,
       totalVotes: this._count?.votes || 0,
+      totalComments: this._count?.comments || 0,
       userVote: this.userVote || null
     };
   }
 
-  // ✅ NUEVOS MÉTODOS PARA ACCEDER A INFORMACIÓN DEL AUTOR
   getAuthorInfo(): {
     id: number;
     username: string;

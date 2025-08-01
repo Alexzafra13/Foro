@@ -21,6 +21,7 @@ export interface CreateCommentResponseDto {
     id: number;
     username: string;
     reputation: number;
+     avatarUrl: string | null;
     role: {
       id: number;
       name: string;
@@ -124,6 +125,7 @@ export class CreateComment implements CreateCommentUseCase {
         id: author.id,
         username: author.username,
         reputation: author.reputation,
+        avatarUrl: author.avatarUrl || null,
         role: author.role!
       },
       parentComment: newComment.parentComment,

@@ -13,6 +13,7 @@ export interface PostDetailResponseDto {
   channelId: number;
   title: string;
   content: string;
+  views: number; // ✅ AGREGAR VIEWS
   isLocked: boolean;
   isPinned: boolean;
   createdAt: Date;
@@ -21,7 +22,7 @@ export interface PostDetailResponseDto {
     id: number;
     username: string;
     reputation: number;
-    avatarUrl: string | null; // ✅ INCLUIR avatarUrl
+    avatarUrl: string | null;
     role: {
       id: number;
       name: string;
@@ -36,8 +37,8 @@ export interface PostDetailResponseDto {
     comments: number;
     votes: number;
     voteScore: number;
+    views: number; // ✅ AGREGAR VIEWS EN STATS
   };
-  // ✅ CAMPOS DE VOTOS PRINCIPALES
   voteScore: number;
   userVote: 1 | -1 | null;
   permissions: {
@@ -47,7 +48,6 @@ export interface PostDetailResponseDto {
     canComment: boolean;
   };
 }
-
 interface GetPostDetailUseCase {
   execute(dto: GetPostDetailRequestDto): Promise<PostDetailResponseDto>;
 }
@@ -85,36 +85,37 @@ export class GetPostDetail implements GetPostDetailUseCase {
 
     // 5. Formatear y retornar respuesta
     return {
-      id: post.id,
-      channelId: post.channelId,
-      title: post.title,
-      content: post.content,
-      isLocked: post.isLocked,
-      isPinned: post.isPinned,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      author: post.author ? {
-        id: post.author.id,
-        username: post.author.username,
-        reputation: post.author.reputation,
-        avatarUrl: post.author.avatarUrl || null, // ✅ INCLUIR avatarUrl
-        role: post.author.role
-      } : null,
-      channel: {
-        id: post.channel!.id,
-        name: post.channel!.name,
-        isPrivate: post.channel!.isPrivate
-      },
-      stats: {
-        comments: post._count?.comments || 0,
-        votes: post._count?.votes || 0,
-        voteScore: post.voteScore || 0
-      },
-      // ✅ CAMPOS DE VOTOS PRINCIPALES
-      voteScore: post.voteScore || 0,
-      userVote: post.userVote || null,
-      permissions
-    };
+  id: post.id,
+  channelId: post.channelId,
+  title: post.title,
+  content: post.content,
+  views: post.views || 0, // ✅ INCLUIR VIEWS
+  isLocked: post.isLocked,
+  isPinned: post.isPinned,
+  createdAt: post.createdAt,
+  updatedAt: post.updatedAt,
+  author: post.author ? {
+    id: post.author.id,
+    username: post.author.username,
+    reputation: post.author.reputation,
+    avatarUrl: post.author.avatarUrl || null,
+    role: post.author.role
+  } : null,
+  channel: {
+    id: post.channel!.id,
+    name: post.channel!.name,
+    isPrivate: post.channel!.isPrivate
+  },
+  stats: {
+    comments: post._count?.comments || 0,
+    votes: post._count?.votes || 0,
+    voteScore: post.voteScore || 0,
+    views: post.views || 0 // ✅ INCLUIR VIEWS EN STATS
+  },
+  voteScore: post.voteScore || 0,
+  userVote: post.userVote || null,
+  permissions
+};
   }
 
   private calculatePermissions(post: PostEntity, userId: number) {

@@ -1,3 +1,4 @@
+// src/domain/entities/comment.entity.ts - VERSIÓN COMPLETA CON avatarUrl
 export class CommentEntity {
   constructor(
     public id: number,
@@ -7,7 +8,7 @@ export class CommentEntity {
     public content: string,
     public isEdited: boolean,
     public editedAt: Date | null,
-    public editCount: number,                 // ✅ AGREGADO ESTE CAMPO
+    public editCount: number,
     public isDeleted: boolean,
     public deletedAt: Date | null,
     public deletedBy: number | null,
@@ -19,6 +20,7 @@ export class CommentEntity {
       id: number;
       username: string;
       reputation: number;
+      avatarUrl: string | null; // ✅ AGREGAR avatarUrl
       role: {
         id: number;
         name: string;
@@ -51,7 +53,7 @@ export class CommentEntity {
 
     return new CommentEntity(
       id, postId, authorId, parentCommentId, content, 
-      isEdited || false, editedAt, editCount || 0,                    // ✅ CAMPO AGREGADO
+      isEdited || false, editedAt, editCount || 0,
       isDeleted || false, deletedAt, deletedBy, deletionReason, isHidden || false,
       createdAt, updatedAt, author, parentComment, replies, _count, voteScore, userVote
     );
@@ -65,8 +67,6 @@ export class CommentEntity {
   // Verificar si puede ser editado
   canBeEditedBy(userId: number, userRole: string): boolean {
     if (this.isDeleted || this.isHidden) return false;
-    
-    // Solo el autor puede editar su comentario
     return this.isAuthor(userId);
   }
 
@@ -74,18 +74,14 @@ export class CommentEntity {
   canBeDeletedBy(userId: number, userRole: string): boolean {
     if (this.isDeleted) return false;
     
-    // El autor puede eliminar su comentario
     if (this.isAuthor(userId)) return true;
     
-    // Admin y moderadores pueden eliminar cualquier comentario
     return ['admin', 'moderator'].includes(userRole);
   }
 
   // Verificar si puede recibir votos
   canBeVotedBy(userId: number): boolean {
     if (this.isDeleted || this.isHidden) return false;
-    
-    // No puedes votar tu propio comentario
     return !this.isAuthor(userId);
   }
   
@@ -93,7 +89,7 @@ export class CommentEntity {
   markAsEdited(): void {
     this.isEdited = true;
     this.editedAt = new Date();
-    this.editCount = (this.editCount || 0) + 1;     // ✅ USANDO EL CAMPO
+    this.editCount = (this.editCount || 0) + 1;
     this.updatedAt = new Date();
   }
 
@@ -106,7 +102,6 @@ export class CommentEntity {
 
   // Verificar si puede ser editado (sin límite de tiempo)
   canStillBeEdited(): boolean {
-    // Solo verificar que no esté eliminado u oculto
     return !this.isDeleted && !this.isHidden;
   }
 
@@ -116,14 +111,14 @@ export class CommentEntity {
     editedAt: Date | null;
     editCount: number;
     canStillEdit: boolean;
-    minutesSinceCreation: number; // Para mostrar "hace X minutos"
+    minutesSinceCreation: number;
   } {
     const minutesSinceCreation = this.getMinutesSinceCreation();
 
     return {
       isEdited: this.isEdited,
       editedAt: this.editedAt,
-      editCount: this.editCount || 0,                // ✅ USANDO EL CAMPO
+      editCount: this.editCount || 0,
       canStillEdit: this.canStillBeEdited(),
       minutesSinceCreation
     };
@@ -173,5 +168,32 @@ export class CommentEntity {
   // Verificar si tiene respuestas
   hasReplies(): boolean {
     return (this._count?.replies || 0) > 0;
+  }
+
+  // ✅ NUEVOS MÉTODOS PARA AVATAR
+  hasAuthorAvatar(): boolean {
+    return !!(this.author?.avatarUrl);
+  }
+
+  getAuthorAvatarUrl(): string | null {
+    return this.author?.avatarUrl || null;
+  }
+
+  getAuthorInfo(): {
+    id: number;
+    username: string;
+    reputation: number;
+    avatarUrl: string | null;
+    role: { id: number; name: string };
+  } | null {
+    if (!this.author) return null;
+    
+    return {
+      id: this.author.id,
+      username: this.author.username,
+      reputation: this.author.reputation,
+      avatarUrl: this.author.avatarUrl,
+      role: this.author.role
+    };
   }
 }

@@ -1,4 +1,4 @@
-// src/infrastructure/datasources/prisma-comment.datasource.ts - CORREGIDO COMPLETO
+// src/infrastructure/datasources/prisma-comment.datasource.ts
 import { PrismaClient } from '@prisma/client';
 import { 
   CommentDatasource, 
@@ -8,40 +8,61 @@ import {
   CommentPaginationOptions, 
   PaginatedCommentsResult 
 } from '../../domain/datasources/comment.datasource';
-import { CommentEntity } from '../../domain/entities/comment.entity';
+import { CommentEntity } from '@/domain/entities/comment.entity'
 
 export class PrismaCommentDatasource implements CommentDatasource {
   constructor(private readonly prisma: PrismaClient) {}
 
+  // Configuración común de include para todas las consultas
+  private getCommentInclude() {
+    return {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          reputation: true,
+          avatarUrl: true, // ✅ INCLUIR avatarUrl
+          role: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      parentComment: {
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true // ✅ INCLUIR avatarUrl también en comentario padre
+            }
+          }
+        }
+      },
+      _count: {
+        select: {
+          replies: true,
+          votes: true
+        }
+      },
+      votes: true
+    };
+  }
+
   async create(createCommentDto: CreateCommentDto): Promise<CommentEntity> {
     const comment = await this.prisma.comment.create({
       data: createCommentDto,
-      include: {
-        author: {
-          include: { role: true }
-        },
-        parentComment: {
-          include: {
-            author: true
-          }
-        },
-        _count: {
-          select: {
-            replies: true,
-            votes: true
-          }
-        },
-        votes: true // ✅ INCLUIR VOTOS
-      }
+      include: this.getCommentInclude()
     });
 
-    // ✅ CALCULAR voteScore Y userVote
     const voteScore = this.calculateVoteScore(comment.votes);
     
     return CommentEntity.fromObject({ 
       ...comment, 
       voteScore,
-      userVote: null, // Para comentarios recién creados
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -53,28 +74,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
   async findById(id: number, userId?: number): Promise<CommentEntity | null> {
     const comment = await this.prisma.comment.findUnique({
       where: { id },
-      include: {
-        author: {
-          include: { role: true }
-        },
-        parentComment: {
-          include: {
-            author: true
-          }
-        },
-        _count: {
-          select: {
-            replies: true,
-            votes: true
-          }
-        },
-        votes: true // ✅ INCLUIR VOTOS
-      }
+      include: this.getCommentInclude()
     });
 
     if (!comment) return null;
 
-    // ✅ CALCULAR voteScore Y userVote
     const voteScore = this.calculateVoteScore(comment.votes);
     const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
 
@@ -100,61 +104,23 @@ export class PrismaCommentDatasource implements CommentDatasource {
       const limit = pagination?.limit || 20;
       const skip = (page - 1) * limit;
 
-      // ✅ CONSTRUIR WHERE CLAUSE CORREGIDA
       const where = this.buildWhereClause(filters);
-
-      // Construir orderBy clause
       const orderBy = this.buildOrderByClause(pagination);
 
-      console.log('🔍 PrismaCommentDatasource.findMany with:', { 
-        where, 
-        orderBy, 
-        skip, 
-        limit, 
-        userId,
-        filters 
-      });
-
-      // ✅ QUERY DIRECTA PARA DEBUG
-      const directCount = await this.prisma.comment.count({ where });
-      console.log(`📊 Direct count query result: ${directCount} comments match the where clause`);
-
-      // Ejecutar queries en paralelo
       const [comments, total] = await Promise.all([
         this.prisma.comment.findMany({
           where,
           orderBy,
           skip,
           take: limit,
-          include: {
-            author: {
-              include: { role: true }
-            },
-            parentComment: {
-              include: {
-                author: true
-              }
-            },
-            _count: {
-              select: {
-                replies: true,
-                votes: true
-              }
-            },
-            votes: true // ✅ INCLUIR VOTOS
-          }
+          include: this.getCommentInclude() // ✅ USAR INCLUDE COMÚN
         }),
         this.prisma.comment.count({ where })
       ]);
 
-      console.log(`✅ Raw query results: Found ${comments.length} comments out of ${total} total`);
-
-      // ✅ PROCESAR COMENTARIOS CON VOTOS
       const processedComments = comments.map((comment) => {
         const voteScore = this.calculateVoteScore(comment.votes);
         const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
-        
-        console.log(`📝 Processing comment ${comment.id}: voteScore=${voteScore}, userVote=${userVote}`);
         
         return CommentEntity.fromObject({ 
           ...comment, 
@@ -168,28 +134,19 @@ export class PrismaCommentDatasource implements CommentDatasource {
         });
       });
 
-      // Calcular paginación
-      const totalPages = Math.ceil(total / limit);
-      const hasNext = page < totalPages;
-      const hasPrev = page > 1;
-
-      const result = {
+      return {
         data: processedComments,
         pagination: {
           page,
           limit,
           total,
-          totalPages,
-          hasNext,
-          hasPrev
+          totalPages: Math.ceil(total / limit),
+          hasNext: page * limit < total,
+          hasPrev: page > 1
         }
       };
-
-      console.log(`✅ Final result: ${result.data.length} comments with pagination:`, result.pagination);
-
-      return result;
     } catch (error) {
-      console.error('❌ Error in findMany comments:', error);
+      console.error('Error in findMany comments:', error);
       throw new Error(`Failed to fetch comments: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -198,23 +155,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
     const comment = await this.prisma.comment.update({
       where: { id },
       data: updateDto,
-      include: {
-        author: {
-          include: { role: true }
-        },
-        parentComment: {
-          include: {
-            author: true
-          }
-        },
-        _count: {
-          select: {
-            replies: true,
-            votes: true
-          }
-        },
-        votes: true // ✅ INCLUIR VOTOS
-      }
+      include: this.getCommentInclude()
     });
 
     const voteScore = this.calculateVoteScore(comment.votes);
@@ -222,7 +163,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return CommentEntity.fromObject({ 
       ...comment, 
       voteScore,
-      userVote: null, // No necesitamos userVote en updates
+      userVote: null,
       parentComment: comment.parentComment ? {
         id: comment.parentComment.id,
         content: comment.parentComment.content.substring(0, 50) + '...',
@@ -234,22 +175,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
   async deleteById(id: number): Promise<CommentEntity> {
     const comment = await this.prisma.comment.delete({
       where: { id },
-      include: {
-        author: {
-          include: { role: true }
-        },
-        parentComment: {
-          include: {
-            author: true
-          }
-        },
-        _count: {
-          select: {
-            replies: true,
-            votes: true
-          }
-        }
-      }
+      include: this.getCommentInclude()
     });
 
     return CommentEntity.fromObject({ 
@@ -269,26 +195,14 @@ export class PrismaCommentDatasource implements CommentDatasource {
     pagination?: CommentPaginationOptions,
     userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>> {
-    console.log(`🔍 PrismaCommentDatasource.findByPostId called with:`, { 
-      postId, 
-      userId, 
-      pagination 
-    });
-
     const filters = { 
       postId, 
-      parentCommentId: null, // ✅ SOLO comentarios raíz (no respuestas)
-      isDeleted: false,      // ✅ SOLO comentarios no eliminados
-      isHidden: false        // ✅ SOLO comentarios no ocultos
+      parentCommentId: null,
+      isDeleted: false,
+      isHidden: false
     };
 
-    console.log(`🔍 Using filters:`, filters);
-
-    const result = await this.findMany(filters, pagination, userId);
-    
-    console.log(`✅ PrismaCommentDatasource.findByPostId returning ${result.data.length} comments`);
-    
-    return result;
+    return this.findMany(filters, pagination, userId);
   }
 
   async findReplies(
@@ -314,7 +228,6 @@ export class PrismaCommentDatasource implements CommentDatasource {
     repliesCount: number;
   }> {
     try {
-      // ✅ OBTENER ESTADÍSTICAS REALES
       const [voteStats, repliesCount] = await Promise.all([
         this.prisma.commentVote.groupBy({
           by: ['voteType'],
@@ -360,7 +273,17 @@ export class PrismaCommentDatasource implements CommentDatasource {
     }
   }
 
-  // ✅ MÉTODOS AUXILIARES PARA VOTOS
+  async countByUserId(userId: number): Promise<number> {
+    return await this.prisma.comment.count({
+      where: { 
+        authorId: userId,
+        isDeleted: false,
+        isHidden: false
+      }
+    });
+  }
+
+  // Métodos auxiliares privados
   private calculateVoteScore(votes: any[]): number {
     if (!votes || votes.length === 0) return 0;
     return votes.reduce((sum, vote) => sum + vote.voteType, 0);
@@ -372,7 +295,6 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return userVote ? userVote.voteType : null;
   }
 
-  // ✅ WHERE CLAUSE CORREGIDA
   private buildWhereClause(filters?: CommentFilters) {
     const where: any = {};
 
@@ -384,59 +306,43 @@ export class PrismaCommentDatasource implements CommentDatasource {
       where.authorId = filters.authorId;
     }
 
-    // ✅ MANEJAR parentCommentId CORRECTAMENTE
     if (filters?.parentCommentId !== undefined) {
       where.parentCommentId = filters.parentCommentId;
     }
 
-    // ✅ FILTROS DE VISIBILIDAD MEJORADOS
     if (filters?.isDeleted !== undefined) {
       where.isDeleted = filters.isDeleted;
     } else if (!filters?.includeDeleted) {
-      where.isDeleted = false; // Por defecto, no mostrar eliminados
+      where.isDeleted = false;
     }
 
     if (filters?.isHidden !== undefined) {
       where.isHidden = filters.isHidden;
     } else if (!filters?.includeHidden) {
-      where.isHidden = false; // Por defecto, no mostrar ocultos
+      where.isHidden = false;
     }
 
     return where;
   }
 
   private buildOrderByClause(pagination?: CommentPaginationOptions) {
-    if (!pagination?.sortBy) {
-      // Por defecto: ordenar por fecha de creación ascendente (comentarios más antiguos primero)
-      return { createdAt: 'asc' as const };
-    }
+    const sortBy = pagination?.sortBy || 'createdAt';
+    const sortOrder = pagination?.sortOrder || 'asc';
 
-    const sortOrder = pagination.sortOrder || 'desc';
-
-    switch (pagination.sortBy) {
-      case 'voteScore':
-        // Para ordenar por score, por ahora usar fecha
-        return { createdAt: sortOrder };
-      case 'replies':
-        return { createdAt: sortOrder };
-      default:
-        return { [pagination.sortBy]: sortOrder };
-    }
-  }
-
-  async countByUserId(userId: number): Promise<number> {
-  try {
-    return await this.prisma.comment.count({
-      where: { 
-        authorId: userId,
-        isDeleted: false
+    const orderByMap: { [key: string]: any } = {
+      'createdAt': { createdAt: sortOrder },
+      'voteScore': { 
+        votes: {
+          _count: sortOrder
+        }
+      },
+      'replies': {
+        replies: {
+          _count: sortOrder
+        }
       }
-    });
-  } catch (error) {
-    console.error('Error counting comments by user:', error);
-    throw new Error('Failed to count user comments');
+    };
+
+    return orderByMap[sortBy] || orderByMap['createdAt'];
   }
-}
-
-
 }
