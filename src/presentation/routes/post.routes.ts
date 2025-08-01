@@ -1,4 +1,4 @@
-// src/presentation/routes/post.routes.ts - ACTUALIZADO CON ESTADÍSTICAS DE VISTAS
+// src/presentation/routes/post.routes.ts - COMPLETO CON TRACKING DE VISTAS
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
@@ -9,7 +9,7 @@ export class PostRoutes {
     const deps = await Dependencies.create();
    
     // 📋 POSTS CRUD - TODAS REQUIEREN AUTENTICACIÓN (FORO PRIVADO)
-    
+   
     // Ver posts → /api/posts/
     router.get('/',
       AuthMiddleware.validateToken,
@@ -21,17 +21,23 @@ export class PostRoutes {
       AuthMiddleware.validateToken,
       deps.controllers.postController.getById.bind(deps.controllers.postController)
     );
-    
+   
     // ✅ NUEVO: Ver estadísticas de vistas de un post → /api/posts/:id/stats
     router.get('/:id/stats',
       AuthMiddleware.validateToken,
       deps.controllers.postController.getViewStats.bind(deps.controllers.postController)
     );
-    
+   
     // Crear post → /api/posts/
     router.post('/',
       AuthMiddleware.validateToken,
       deps.controllers.postController.create.bind(deps.controllers.postController)
+    );
+
+    // ✅ NUEVO: Trackear vista de post → /api/posts/:id/track-view
+    router.post('/:id/track-view',
+      AuthMiddleware.validateToken,
+      deps.controllers.postController.trackView.bind(deps.controllers.postController)
     );
    
     // Editar post → /api/posts/:id
@@ -47,7 +53,7 @@ export class PostRoutes {
     );
 
     // 💬 COMENTARIOS DE POSTS
-    
+   
     // Crear comentario en post → /api/posts/:postId/comments
     router.post('/:postId/comments',
       AuthMiddleware.validateToken,
@@ -61,7 +67,7 @@ export class PostRoutes {
     );
 
     // 🗳️ VOTOS EN POSTS
-    
+   
     // Votar en post → /api/posts/:id/vote
     router.post('/:id/vote',
       AuthMiddleware.validateToken,

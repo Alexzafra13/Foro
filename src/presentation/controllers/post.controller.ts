@@ -1,4 +1,4 @@
-// src/presentation/controllers/post.controller.ts - ACTUALIZADO CON TRACKING DE VISTAS
+// src/presentation/controllers/post.controller.ts - COMPLETO CON TRACKING DE VISTAS
 import { Request, Response } from 'express';
 import { CreatePost } from '../../domain/use-cases/posts/create-post.use-case';
 import { GetPosts } from '../../domain/use-cases/posts/get-posts.use-case';
@@ -91,31 +91,66 @@ export class PostController {
           code: 'INVALID_POST_ID'
         });
       }
+        // 1. Obtener el post
+        const result = await this.getPostDetail.execute({
+          postId,
+          userId
+        });
 
-      // 1. Obtener el post
-      const result = await this.getPostDetail.execute({
-        postId,
-        userId
-      });
+        // 2. Trackear vista del usuario (async, no bloqueante)
+        this.trackPostView.execute({
+          userId,
+          postId,
+          ipAddress: this.getClientIP(req),
+          userAgent: req.headers['user-agent']
+        }).catch(error => {
+          console.error(`Error tracking view for post ${postId} by user ${userId}:`, error);
+          // No fallar la respuesta por error de tracking
+        });
 
-      // 2. Trackear vista del usuario (async, no bloqueante)
-      this.trackPostView.execute({
+        res.json({
+          success: true,
+          data: result,
+          message: 'Post retrieved successfully'
+        });
+      } catch (error) {
+        this.handleError(error, res, 'Error fetching post');
+      }
+    }
+
+  // ✅ NUEVO: POST /api/posts/:id/track-view - Endpoint específico para trackear vistas
+  async trackView(req: Request, res: Response) {
+    try {
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId!;
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
+      console.log(`🔍 Tracking view for post ${postId} by user ${userId}`);
+
+      const result = await this.trackPostView.execute({
         userId,
         postId,
         ipAddress: this.getClientIP(req),
         userAgent: req.headers['user-agent']
-      }).catch(error => {
-        console.error(`Error tracking view for post ${postId} by user ${userId}:`, error);
-        // No fallar la respuesta por error de tracking
       });
+
+      console.log(`✅ View tracking result:`, result);
 
       res.json({
         success: true,
         data: result,
-        message: 'Post retrieved successfully'
+        message: result.message
       });
     } catch (error) {
-      this.handleError(error, res, 'Error fetching post');
+      console.error(`❌ Error tracking view for post ${req.params.id}:`, error);
+      this.handleError(error, res, 'Error tracking post view');
     }
   }
 
