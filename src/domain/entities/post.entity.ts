@@ -1,4 +1,4 @@
-// src/domain/entities/post.entity.ts - ACTUALIZADA
+// src/domain/entities/post.entity.ts - ACTUALIZADA CON avatarUrl
 export class PostEntity {
   constructor(
     public id: number,
@@ -19,6 +19,7 @@ export class PostEntity {
       id: number;
       username: string;
       reputation: number;
+      avatarUrl: string | null; // ✅ INCLUIR avatarUrl
       role: {
         id: number;
         name: string;
@@ -99,5 +100,32 @@ export class PostEntity {
       totalVotes: this._count?.votes || 0,
       userVote: this.userVote || null
     };
+  }
+
+  // ✅ NUEVOS MÉTODOS PARA ACCEDER A INFORMACIÓN DEL AUTOR
+  getAuthorInfo(): {
+    id: number;
+    username: string;
+    reputation: number;
+    avatarUrl: string | null;
+    role: { id: number; name: string };
+  } | null {
+    if (!this.author) return null;
+    
+    return {
+      id: this.author.id,
+      username: this.author.username,
+      reputation: this.author.reputation,
+      avatarUrl: this.author.avatarUrl,
+      role: this.author.role
+    };
+  }
+
+  hasAuthorAvatar(): boolean {
+    return !!(this.author?.avatarUrl);
+  }
+
+  getAuthorAvatarUrl(): string | null {
+    return this.author?.avatarUrl || null;
   }
 }

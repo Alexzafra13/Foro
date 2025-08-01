@@ -1,4 +1,4 @@
-// src/domain/use-cases/posts/get-posts.use-case.ts - CORREGIDO PARA FORO PRIVADO
+// src/domain/use-cases/posts/get-posts.use-case.ts - ACTUALIZADO CON avatarUrl
 import { PostRepository } from '../../repositories/post.repository';
 import { PostFilters, PaginationOptions, PaginatedResult } from '../../datasources/post.datasource';
 import { ValidationErrors, AuthErrors } from '../../../shared/errors';
@@ -32,6 +32,7 @@ export interface PostSummaryDto {
     id: number;
     username: string;
     reputation: number;
+    avatarUrl: string | null; // ✅ INCLUIR avatarUrl
   } | null;
   channel: {
     id: number;
@@ -134,7 +135,8 @@ export class GetPosts implements GetPostsUseCase {
       author: post.author ? {
         id: post.author.id,
         username: post.author.username,
-        reputation: post.author.reputation
+        reputation: post.author.reputation,
+        avatarUrl: post.author.avatarUrl || null // ✅ INCLUIR avatarUrl
       } : null,
       channel: {
         id: post.channel.id,

@@ -1,4 +1,4 @@
-// src/domain/use-cases/posts/get-post-detail.use-case.ts - CORREGIDO PARA FORO PRIVADO
+// src/domain/use-cases/posts/get-post-detail.use-case.ts - ACTUALIZADO CON avatarUrl
 import { PostRepository } from '../../repositories/post.repository';
 import { PostEntity } from '../../entities/post.entity'; 
 import { PostErrors, AuthErrors } from '../../../shared/errors';
@@ -21,6 +21,7 @@ export interface PostDetailResponseDto {
     id: number;
     username: string;
     reputation: number;
+    avatarUrl: string | null; // ✅ INCLUIR avatarUrl
     role: {
       id: number;
       name: string;
@@ -96,6 +97,7 @@ export class GetPostDetail implements GetPostDetailUseCase {
         id: post.author.id,
         username: post.author.username,
         reputation: post.author.reputation,
+        avatarUrl: post.author.avatarUrl || null, // ✅ INCLUIR avatarUrl
         role: post.author.role
       } : null,
       channel: {

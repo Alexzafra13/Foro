@@ -1,4 +1,4 @@
-// src/infrastructure/datasources/prisma-post.datasource.ts - REEMPLAZAR COMPLETO
+// src/infrastructure/datasources/prisma-post.datasource.ts - ACTUALIZACIÓN
 import { PrismaClient } from '@prisma/client';
 import { 
   PostDatasource, 
@@ -18,7 +18,9 @@ export class PrismaPostDatasource implements PostDatasource {
       data: createPostDto,
       include: {
         author: {
-          include: { role: true }
+          include: { 
+            role: true 
+          }
         },
         channel: true,
         _count: {
@@ -40,14 +42,31 @@ export class PrismaPostDatasource implements PostDatasource {
     });
   }
 
-  async findById(id: number, userId?: number): Promise<PostEntity | null> {
+   async findById(id: number, userId?: number): Promise<PostEntity | null> {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: {
         author: {
-          include: { role: true }
+          select: {
+            id: true,
+            username: true,
+            reputation: true,
+            avatarUrl: true, // ✅ INCLUIR avatarUrl
+            role: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
         },
-        channel: true,
+        channel: {
+          select: {
+            id: true,
+            name: true,
+            isPrivate: true
+          }
+        },
         _count: {
           select: {
             comments: true,
@@ -70,26 +89,46 @@ export class PrismaPostDatasource implements PostDatasource {
     });
   }
 
-  async findMany(
+   async findMany(
     filters?: PostFilters,
     pagination?: PaginationOptions,
     userId?: number
   ): Promise<PaginatedResult<PostEntity>> {
+    const where = this.buildWhereClause(filters);
+    const orderBy = this.buildOrderBy(pagination);
+    
     const page = pagination?.page || 1;
-    const limit = pagination?.limit || 10;
+    const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
-
-    const whereClause = this.buildWhereClause(filters);
-    const orderBy = this.buildOrderByClause(pagination);
 
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
-        where: whereClause,
+        where,
+        orderBy,
+        skip,
+        take: limit,
         include: {
           author: {
-            include: { role: true }
+            select: {
+              id: true,
+              username: true,
+              reputation: true,
+              avatarUrl: true, // ✅ INCLUIR avatarUrl
+              role: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
           },
-          channel: true,
+          channel: {
+            select: {
+              id: true,
+              name: true,
+              isPrivate: true
+            }
+          },
           _count: {
             select: {
               comments: true,
@@ -97,15 +136,12 @@ export class PrismaPostDatasource implements PostDatasource {
             }
           },
           votes: true
-        },
-        orderBy,
-        skip,
-        take: limit
+        }
       }),
-      this.prisma.post.count({ where: whereClause })
+      this.prisma.post.count({ where })
     ]);
 
-    const postsWithScores = posts.map(post => {
+    const postsWithVotes = posts.map(post => {
       const voteScore = this.calculateVoteScore(post.votes);
       const userVote = userId ? this.getUserVote(post.votes, userId) : null;
       
@@ -116,19 +152,15 @@ export class PrismaPostDatasource implements PostDatasource {
       });
     });
 
-    const totalPages = Math.ceil(total / limit);
-    const hasNext = page < totalPages;
-    const hasPrev = page > 1;
-
     return {
-      data: postsWithScores,
+      data: postsWithVotes,
       pagination: {
         page,
         limit,
         total,
-        totalPages,
-        hasNext,
-        hasPrev
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1
       }
     };
   }
@@ -142,7 +174,9 @@ export class PrismaPostDatasource implements PostDatasource {
       },
       include: {
         author: {
-          include: { role: true }
+          include: { 
+            role: true 
+          }
         },
         channel: true,
         _count: {
@@ -169,7 +203,9 @@ export class PrismaPostDatasource implements PostDatasource {
       where: { id },
       include: {
         author: {
-          include: { role: true }
+          include: { 
+            role: true 
+          }
         },
         channel: true,
         _count: {
@@ -177,110 +213,86 @@ export class PrismaPostDatasource implements PostDatasource {
             comments: true,
             votes: true
           }
-        }
+        },
+        votes: true
       }
     });
 
-    return PostEntity.fromObject({ ...post, voteScore: 0, userVote: null });
+    const voteScore = this.calculateVoteScore(post.votes);
+    
+    return PostEntity.fromObject({ 
+      ...post, 
+      voteScore,
+      userVote: null
+    });
   }
 
   async incrementViews(id: number): Promise<void> {
-    console.log(`Incrementing views for post ${id}`);
+    try {
+      await this.prisma.post.update({
+        where: { id },
+        data: {
+          views: {
+            increment: 1
+          }
+        }
+      });
+    } catch (error) {
+      console.error(`Error incrementing views for post ${id}:`, error);
+      // No lanzar error para que no afecte la carga del post
+    }
   }
 
   // ✅ NUEVOS MÉTODOS PARA ESTADÍSTICAS
   async countByUserId(userId: number): Promise<number> {
-    try {
-      return await this.prisma.post.count({
-        where: { 
-          authorId: userId
-          // ❌ SIN isDeleted: false - No existe en el schema
-        }
-      });
-    } catch (error) {
-      console.error('Error counting posts by user:', error);
-      throw new Error('Failed to count user posts');
-    }
+    return await this.prisma.post.count({
+      where: { authorId: userId }
+    });
   }
 
   async findByUserId(userId: number): Promise<PostEntity[]> {
-    try {
-      const posts = await this.prisma.post.findMany({
-        where: { 
-          authorId: userId
-          // ❌ SIN isDeleted: false - No existe en el schema
+    const posts = await this.prisma.post.findMany({
+      where: { authorId: userId },
+      include: {
+        author: {
+          include: { 
+            role: true 
+          }
         },
-        include: {
-          author: {
-            include: {
-              role: true
-            }
-          },
-          channel: true,
-          _count: {
-            select: {
-              comments: true,
-              votes: true
-            }
-          },
-          votes: true
+        channel: true,
+        _count: {
+          select: {
+            comments: true,
+            votes: true
+          }
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+        votes: true
+      }
+    });
 
-      return posts.map(post => {
-        const voteScore = this.calculateVoteScore(post.votes);
-        return PostEntity.fromObject({
-          ...post,
-          voteScore,
-          userVote: null
-        });
+    return posts.map(post => {
+      const voteScore = this.calculateVoteScore(post.votes);
+      return PostEntity.fromObject({ 
+        ...post, 
+        voteScore,
+        userVote: null
       });
-
-    } catch (error) {
-      console.error('Error finding posts by user:', error);
-      throw new Error('Failed to find user posts');
-    }
+    });
   }
 
   async getTotalVotesForUser(userId: number): Promise<number> {
-    try {
-      const result = await this.prisma.vote.aggregate({
-        where: {
-          post: {
-            authorId: userId
-            // ❌ SIN isDeleted: false - No existe en el schema
-          }
-        },
-        _sum: {
-          voteType: true
+    const result = await this.prisma.vote.count({
+      where: {
+        post: {
+          authorId: userId
         }
-      });
-
-      if (!result._sum || result._sum.voteType === null) return 0;
-      return result._sum.voteType;
-
-    } catch (error) {
-      console.error('Error calculating total votes for user:', error);
-      return 0;
-    }
+      }
+    });
+    return result;
   }
 
-  // ✅ MÉTODOS AUXILIARES
-  private calculateVoteScore(votes: any[]): number {
-    if (!votes || votes.length === 0) return 0;
-    return votes.reduce((sum, vote) => sum + vote.voteType, 0);
-  }
-
-  private getUserVote(votes: any[], userId: number): 1 | -1 | null {
-    if (!votes || votes.length === 0) return null;
-    const userVote = votes.find(vote => vote.userId === userId);
-    return userVote ? userVote.voteType : null;
-  }
-
-  private buildWhereClause(filters?: PostFilters) {
+  // Métodos auxiliares privados
+  private buildWhereClause(filters?: PostFilters): any {
     const where: any = {};
 
     if (filters?.channelId) {
@@ -298,33 +310,41 @@ export class PrismaPostDatasource implements PostDatasource {
       ];
     }
 
-    if (filters?.isLocked !== undefined) {
-      where.isLocked = filters.isLocked;
-    }
-
-    if (filters?.isPinned !== undefined) {
-      where.isPinned = filters.isPinned;
-    }
-
     return where;
   }
 
-  private buildOrderByClause(pagination?: PaginationOptions) {
-    if (!pagination?.sortBy) {
-      return [
-        { isPinned: 'desc' as const },
-        { createdAt: 'desc' as const }
-      ];
-    }
+   private buildOrderBy(pagination?: PaginationOptions): any {
+    const sortBy = pagination?.sortBy || 'createdAt';
+    const sortOrder = pagination?.sortOrder || 'desc';
 
-    const orderBy: any = {};
+    // Mapear campos de ordenamiento
+    const orderByMap: { [key: string]: any } = {
+      'createdAt': { createdAt: sortOrder },
+      'updatedAt': { updatedAt: sortOrder },
+      'title': { title: sortOrder },
+      'views': { views: sortOrder }, // ✅ AGREGAR ORDENAMIENTO POR VIEWS
+      'voteScore': { 
+        votes: {
+          _count: sortOrder
+        }
+      }
+    };
+
+    return orderByMap[sortBy] || orderByMap['createdAt'];
+  }
+
+  private calculateVoteScore(votes: any[]): number {
+    if (!votes || votes.length === 0) return 0;
     
-    if (pagination.sortBy === 'voteScore') {
-      orderBy.createdAt = pagination.sortOrder || 'desc';
-    } else {
-      orderBy[pagination.sortBy] = pagination.sortOrder || 'desc';
-    }
+    return votes.reduce((score, vote) => {
+      return score + (vote.voteType === 1 ? 1 : -1);
+    }, 0);
+  }
 
-    return orderBy;
+  private getUserVote(votes: any[], userId: number): 1 | -1 | null {
+    if (!votes || votes.length === 0 || !userId) return null;
+    
+    const userVote = votes.find(vote => vote.userId === userId);
+    return userVote ? userVote.voteType : null;
   }
 }

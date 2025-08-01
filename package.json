@@ -16,9 +16,6 @@
     "test:e2e": "jest tests/e2e --runInBand",
     "test:clear": "jest --clearCache"
   },
-  "prisma": {
-    "seed": "ts-node --project tsconfig.json -r tsconfig-paths/register ./prisma/seed.ts"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
