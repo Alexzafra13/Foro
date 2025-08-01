@@ -23,7 +23,8 @@ export interface PostSummaryDto {
   id: number;
   channelId: number;
   title: string;
-  content: string; // Truncado para lista
+  content: string;
+  views: number; // Truncado para lista
   isLocked: boolean;
   isPinned: boolean;
   createdAt: Date;
@@ -42,6 +43,7 @@ export interface PostSummaryDto {
     comments: number;
     votes: number;
     voteScore: number;
+    views: number;
   };
   // ✅ CAMPOS DE VOTOS PRINCIPALES
   voteScore: number;
@@ -128,6 +130,7 @@ export class GetPosts implements GetPostsUseCase {
       channelId: post.channelId,
       title: post.title,
       content: this.truncateContent(post.content, 300),
+      views: post.views || 0,
       isLocked: post.isLocked,
       isPinned: post.isPinned,
       createdAt: post.createdAt,
@@ -145,7 +148,8 @@ export class GetPosts implements GetPostsUseCase {
       stats: {
         comments: post._count?.comments || 0,
         votes: post._count?.votes || 0,
-        voteScore: post.voteScore || 0
+        voteScore: post.voteScore || 0,
+        views: post.views || 0
       },
       // ✅ CAMPOS DE VOTOS PRINCIPALES
       voteScore: post.voteScore || 0,
