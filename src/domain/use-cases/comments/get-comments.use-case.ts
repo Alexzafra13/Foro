@@ -27,6 +27,7 @@ export interface CommentSummaryDto {
     id: number;
     username: string;
     reputation: number;
+    avatarUrl: string | null;
     role: {
       id: number;
       name: string;
@@ -175,6 +176,7 @@ export class GetComments implements GetCommentsUseCase {
         id: comment.author.id,
         username: comment.author.username,
         reputation: comment.author.reputation,
+        avatarUrl: comment.author.avatarUrl || null,
         role: comment.author.role
       } : null,
       parentComment: comment.parentComment,
