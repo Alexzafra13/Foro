@@ -1,3 +1,4 @@
+// src/domain/use-cases/auth/login-user.use-case.ts - CORREGIDO
 import { UserRepository } from '../../repositories/user.repository';
 import { UserErrors, ValidationErrors } from '../../../shared/errors';
 import { bcryptAdapter } from '../../../config/bcrypt.adapter';
@@ -20,6 +21,8 @@ export interface AuthResponseDto {
     };
     reputation: number;
     createdAt: Date;
+    isEmailVerified: boolean; // ✅ AGREGADO: Campo de verificación de email
+    emailVerifiedAt?: Date | null; // ✅ AGREGADO: Fecha de verificación
   };
   token: string;
 }
@@ -60,7 +63,7 @@ export class LoginUser implements LoginUserUseCase {
       throw new Error('Error generating authentication token');
     }
 
-    // 5. Retornar respuesta sin contraseña
+    // 5. ✅ CORREGIDO: Retornar respuesta CON verificación de email
     return {
       user: {
         id: user.id,
@@ -68,7 +71,9 @@ export class LoginUser implements LoginUserUseCase {
         email: user.email,
         role: user.role!,
         reputation: user.reputation,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        isEmailVerified: user.isEmailVerified || false, // ✅ AGREGADO
+        emailVerifiedAt: user.emailVerifiedAt || null   // ✅ AGREGADO
       },
       token
     };

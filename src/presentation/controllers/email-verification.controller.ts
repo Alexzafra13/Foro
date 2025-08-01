@@ -1,12 +1,15 @@
+// src/presentation/controllers/email-verification.controller.ts - MEJORADO
 import { Request, Response } from 'express';
 import { VerifyEmail } from '../../domain/use-cases/email/verify-email.use-case';
 import { SendVerificationEmail } from '../../domain/use-cases/email/send-verification-email.use-case';
+import { UserRepository } from '../../domain/repositories/user.repository';
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class EmailVerificationController {
   constructor(
     private readonly verifyEmail: VerifyEmail,
-    private readonly sendVerificationEmail: SendVerificationEmail
+    private readonly sendVerificationEmail: SendVerificationEmail,
+    private readonly userRepository: UserRepository // ✅ NUEVO: Para obtener datos actualizados
   ) {}
 
   // POST /api/auth/verify-email
@@ -26,7 +29,7 @@ export class EmailVerificationController {
 
       res.json({
         success: true,
-        data: result.user,
+        data: result,
         message: 'Email verified successfully! You can now access all features.'
       });
     } catch (error) {
@@ -47,6 +50,33 @@ export class EmailVerificationController {
         });
       }
 
+      // ✅ VERIFICAR PRIMERO SI YA ESTÁ VERIFICADO
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      if (user.isEmailVerified) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email is already verified',
+          code: 'EMAIL_ALREADY_VERIFIED',
+          data: {
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              isEmailVerified: user.isEmailVerified,
+              emailVerifiedAt: user.emailVerifiedAt
+            }
+          }
+        });
+      }
+
       const result = await this.sendVerificationEmail.execute({ userId });
 
       res.json({
@@ -61,7 +91,7 @@ export class EmailVerificationController {
     }
   }
 
-  // GET /api/auth/verification-status
+  // ✅ NUEVO: GET /api/auth/verification-status - Estado completo del usuario
   async getVerificationStatus(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
@@ -74,14 +104,31 @@ export class EmailVerificationController {
         });
       }
 
-      // Este endpoint podría expandirse para mostrar más información
-      // Por ahora, solo confirmamos que el middleware de auth funciona
+      // Obtener datos actualizados del usuario
+      const user = await this.userRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
       res.json({
         success: true,
         data: {
-          userId,
-          message: 'User is authenticated'
-        }
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            isEmailVerified: user.isEmailVerified || false,
+            emailVerifiedAt: user.emailVerifiedAt || null,
+            role: user.role,
+            reputation: user.reputation,
+            createdAt: user.createdAt
+          }
+        },
+        message: 'User verification status retrieved successfully'
       });
     } catch (error) {
       this.handleError(error, res, 'Error checking verification status');

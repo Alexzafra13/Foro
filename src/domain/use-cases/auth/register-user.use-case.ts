@@ -1,3 +1,4 @@
+// src/domain/use-cases/auth/register-user.use-case.ts - CORREGIDO
 import { UserRepository } from '../../repositories/user.repository';
 import { InviteCodeRepository } from '../../repositories/invite-code.repository';
 import { UserErrors, ValidationErrors, InviteCodeErrors } from '../../../shared/errors';
@@ -24,11 +25,12 @@ export interface AuthResponseDto {
     };
     reputation: number;
     createdAt: Date;
-    isEmailVerified: boolean; // ✅ NUEVO CAMPO
+    isEmailVerified: boolean; // ✅ CAMPO CONSISTENTE
+    emailVerifiedAt?: Date | null; // ✅ CAMPO CONSISTENTE
   };
   token: string;
   inviteCodeUsed: string;
-  emailVerificationSent: boolean; // ✅ NUEVO CAMPO
+  emailVerificationSent: boolean;
 }
 
 interface RegisterUserUseCase {
@@ -39,7 +41,7 @@ export class RegisterUser implements RegisterUserUseCase {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly inviteCodeRepository: InviteCodeRepository,
-    private readonly sendVerificationEmail: SendVerificationEmail // ✅ NUEVO DEPENDENCY
+    private readonly sendVerificationEmail: SendVerificationEmail
   ) {}
 
   async execute(registerDto: RegisterUserDto): Promise<AuthResponseDto> {
@@ -103,7 +105,7 @@ export class RegisterUser implements RegisterUserUseCase {
       throw new Error('Error generating authentication token');
     }
 
-    // 10. Retornar respuesta con información de verificación
+    // 10. ✅ CORREGIDO: Retornar respuesta CON información de verificación
     return {
       user: {
         id: newUser.id,
@@ -112,18 +114,19 @@ export class RegisterUser implements RegisterUserUseCase {
         role: newUser.role!,
         reputation: newUser.reputation,
         createdAt: newUser.createdAt,
-        isEmailVerified: newUser.isEmailVerified || false // ✅ NUEVO
+        isEmailVerified: newUser.isEmailVerified || false, // ✅ AGREGADO
+        emailVerifiedAt: newUser.emailVerifiedAt || null   // ✅ AGREGADO
       },
       token,
       inviteCodeUsed: inviteCode,
-      emailVerificationSent // ✅ NUEVO
+      emailVerificationSent
     };
   }
 
   private async validateInviteCode(code: string) {
     // 1. Buscar el código
     const inviteCodeEntity = await this.inviteCodeRepository.findByCode(code);
-    
+
     if (!inviteCodeEntity) {
       throw InviteCodeErrors.codeNotFound(code);
     }
@@ -141,7 +144,7 @@ export class RegisterUser implements RegisterUserUseCase {
     if (inviteCodeEntity.isExpired(168)) {
       const expiresAt = new Date(inviteCodeEntity.createdAt);
       expiresAt.setDate(expiresAt.getDate() + 7);
-      
+
       throw InviteCodeErrors.codeExpired(code, expiresAt);
     }
 
@@ -149,40 +152,39 @@ export class RegisterUser implements RegisterUserUseCase {
   }
 
   private validateInput(username: string, email: string, password: string, inviteCode: string): void {
-    // Validar invite code PRIMERO
-    if (!inviteCode || inviteCode.trim().length === 0) {
-      throw ValidationErrors.requiredField('Invite code');
+    // Username validation
+    if (!username || username.length === 0) {
+      throw ValidationErrors.requiredField('Username');
     }
-
-    if (inviteCode.trim().length < 6) {
-      throw ValidationErrors.minLength('Invite code', 6);
-    }
-
-    // Validar username
-    if (!username || username.trim().length < 3) {
+    if (username.length < 3) {
       throw ValidationErrors.minLength('Username', 3);
     }
-
-    if (username.trim().length > 32) {
-      throw ValidationErrors.maxLength('Username', 32);
+    if (username.length > 30) {
+      throw ValidationErrors.maxLength('Username', 30);
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      throw ValidationErrors.invalidFormat('Username', 'letters, numbers, and underscores only');
     }
 
-    // Validar email
-    if (!email || !this.isValidEmail(email)) {
+    // Email validation
+    if (!email || email.length === 0) {
+      throw ValidationErrors.requiredField('Email');
+    }
+    if (!this.isValidEmail(email)) {
       throw ValidationErrors.invalidFormat('Email', 'valid email address');
     }
 
-    if (email.length > 100) {
-      throw ValidationErrors.maxLength('Email', 100);
+    // Password validation
+    if (!password || password.length === 0) {
+      throw ValidationErrors.requiredField('Password');
     }
-
-    // Validar password
-    if (!password || password.length < 6) {
+    if (password.length < 6) {
       throw ValidationErrors.minLength('Password', 6);
     }
 
-    if (password.length > 100) {
-      throw ValidationErrors.maxLength('Password', 100);
+    // Invite code validation
+    if (!inviteCode || inviteCode.length === 0) {
+      throw ValidationErrors.requiredField('Invite code');
     }
   }
 

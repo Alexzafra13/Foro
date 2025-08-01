@@ -263,10 +263,11 @@ export class Dependencies {
       getInviteStats       
     );
 
-    const emailVerificationController = new EmailVerificationController(
-      verifyEmail,
-      sendVerificationEmail
-    );
+   const emailVerificationController = new EmailVerificationController(
+  verifyEmail,
+  sendVerificationEmail,
+  userRepository // ✅ AGREGAR: Tercer parámetro requerido
+);
 
     const categoryController = new CategoryController(getCategories);
     const channelController = new ChannelController(getChannel);
