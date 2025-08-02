@@ -1,4 +1,4 @@
-// src/domain/use-cases/post-views/track-post-view.use-case.ts
+// src/domain/use-cases/post-views/track-post-view.use-case.ts - CORREGIDO
 import { PostViewRepository } from '../../repositories/post-view.repository';
 import { PostRepository } from '../../repositories/post.repository';
 import { PostViewStats } from '../../datasources/post-view.datasource';
@@ -41,19 +41,15 @@ export class TrackPostView implements TrackPostViewUseCase {
       throw PostErrors.postNotFound(postId);
     }
 
-    // 3. Verificar si el usuario ya vio el post hoy
-    const hasViewedToday = await this.postViewRepository.hasViewedToday(userId, postId);
+    // 3. ✅ CORREGIDO: Verificar si existe una vista previa (no por día, sino en general)
+    const existingView = await this.postViewRepository.findByUserAndPost(userId, postId);
+    const isFirstView = !existingView;
     
     let viewCreated = false;
-    let isFirstView = false;
 
-    // 4. Si no ha visto el post hoy, crear nueva vista
-    if (!hasViewedToday) {
-      // Verificar si es la primera vista del usuario para este post
-      const existingView = await this.postViewRepository.findByUserAndPost(userId, postId);
-      isFirstView = !existingView;
-
-      // Crear nueva vista
+    // 4. ✅ CORREGIDO: Solo crear vista si es la primera vez
+    if (isFirstView) {
+      // Crear nueva vista (el datasource usa upsert, así que es seguro)
       await this.postViewRepository.create({
         userId,
         postId,
@@ -63,7 +59,7 @@ export class TrackPostView implements TrackPostViewUseCase {
 
       viewCreated = true;
 
-      // 5. Actualizar contador de vistas en el post
+      // 5. Actualizar contador de vistas únicas en el post
       const uniqueViews = await this.postViewRepository.countUniqueViewsForPost(postId);
       await this.postRepository.updateViews(postId, uniqueViews);
     }
@@ -77,9 +73,9 @@ export class TrackPostView implements TrackPostViewUseCase {
       isFirstView,
       totalViews: stats.totalViews,
       uniqueViews: stats.uniqueViews,
-      message: viewCreated 
-        ? (isFirstView ? 'First view registered' : 'Daily view registered')
-        : 'View already registered today'
+      message: isFirstView 
+        ? 'First view registered for this post'
+        : 'View already registered for this post'
     };
   }
 

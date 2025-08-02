@@ -1,4 +1,4 @@
-// src/domain/use-cases/auth/login-user.use-case.ts - CORREGIDO
+// src/domain/use-cases/auth/login-user.use-case.ts - ACTUALIZADO
 import { UserRepository } from '../../repositories/user.repository';
 import { UserErrors, ValidationErrors } from '../../../shared/errors';
 import { bcryptAdapter } from '../../../config/bcrypt.adapter';
@@ -21,8 +21,8 @@ export interface AuthResponseDto {
     };
     reputation: number;
     createdAt: Date;
-    isEmailVerified: boolean; // ✅ AGREGADO: Campo de verificación de email
-    emailVerifiedAt?: Date | null; // ✅ AGREGADO: Fecha de verificación
+    isEmailVerified: boolean;
+    emailVerifiedAt?: Date | null;
   };
   token: string;
 }
@@ -53,7 +53,12 @@ export class LoginUser implements LoginUserUseCase {
       throw UserErrors.invalidCredentials();
     }
 
-    // 4. Generar JWT con id y email
+    // 4. ✅ NUEVO: Actualizar lastLoginAt
+    await this.userRepository.updateById(user.id, {
+      lastLoginAt: new Date()
+    });
+
+    // 5. Generar JWT con id y email
     const token = JwtAdapter.generateToken({
       userId: user.id,
       email: user.email
@@ -63,7 +68,7 @@ export class LoginUser implements LoginUserUseCase {
       throw new Error('Error generating authentication token');
     }
 
-    // 5. ✅ CORREGIDO: Retornar respuesta CON verificación de email
+    // 6. Retornar respuesta CON verificación de email
     return {
       user: {
         id: user.id,
@@ -72,8 +77,8 @@ export class LoginUser implements LoginUserUseCase {
         role: user.role!,
         reputation: user.reputation,
         createdAt: user.createdAt,
-        isEmailVerified: user.isEmailVerified || false, // ✅ AGREGADO
-        emailVerifiedAt: user.emailVerifiedAt || null   // ✅ AGREGADO
+        isEmailVerified: user.isEmailVerified || false,
+        emailVerifiedAt: user.emailVerifiedAt || null
       },
       token
     };

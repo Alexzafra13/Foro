@@ -16,6 +16,7 @@ import { PrismaPasswordResetTokenDatasource } from "./datasources/prisma-passwor
 import { PrismaVoteDatasource } from "./datasources/prisma-vote.datasource";
 import { PrismaCommentVoteDatasource } from "./datasources/prisma-comment-vote.datasource";
 import { PrismaPostViewDatasource } from "./datasources/prisma-post-view.datasource";
+import { PrismaNotificationDatasource } from "./datasources/prisma-notification.datasource";
 
 // Repositories
 import { UserRepositoryImpl } from "./repositories/user.repository.impl";
@@ -31,6 +32,13 @@ import { PasswordResetTokenRepositoryImpl } from "./repositories/password-reset-
 import { VoteRepositoryImpl } from "./repositories/vote.repository.impl";
 import { CommentVoteRepositoryImpl } from "./repositories/comment-vote.repository.impl";
 import { PostViewRepositoryImpl } from "./repositories/post-view.repository.impl";
+import { NotificationRepositoryImpl } from "./repositories/notification.repository.impl";
+
+// Use Cases - Notifications
+import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
+import { GetUserNotifications } from "../domain/use-cases/notifications/get-user-notifications.use-case";
+import { MarkNotificationAsRead } from "../domain/use-cases/notifications/mark-notification-as-read.use-case";
+import { MarkAllAsRead } from "../domain/use-cases/notifications/mark-all-as-read.use-case";
 
 // Use Cases - Auth
 import { RegisterUser } from "../domain/use-cases/auth/register-user.use-case";
@@ -91,6 +99,7 @@ import { ProfileController } from "../presentation/controllers/profile.controlle
 import { SettingsController } from "../presentation/controllers/settings.controller";
 import { PasswordResetController } from "../presentation/controllers/password-reset.controller";
 import { VoteController } from "../presentation/controllers/vote.controller";
+import { NotificationController } from "../presentation/controllers/notification.controller";
 
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
@@ -114,6 +123,7 @@ export class Dependencies {
     const voteDatasource = new PrismaVoteDatasource(prisma);
     const commentVoteDatasource = new PrismaCommentVoteDatasource(prisma);
     const postViewDatasource = new PrismaPostViewDatasource(prisma);
+    const notificationDatasource = new PrismaNotificationDatasource(prisma);
 
     // ===== REPOSITORIES =====
     const userRepository = new UserRepositoryImpl(userDatasource);
@@ -129,9 +139,16 @@ export class Dependencies {
     const voteRepository = new VoteRepositoryImpl(voteDatasource);
     const commentVoteRepository = new CommentVoteRepositoryImpl(commentVoteDatasource);
     const postViewRepository = new PostViewRepositoryImpl(postViewDatasource);
+    const notificationRepository = new NotificationRepositoryImpl(notificationDatasource);
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
+
+    // ===== USE CASES - NOTIFICATIONS =====
+    const createNotification = new CreateNotification(notificationRepository, userRepository);
+    const getUserNotifications = new GetUserNotifications(notificationRepository);
+    const markNotificationAsRead = new MarkNotificationAsRead(notificationRepository);
+    const markAllAsRead = new MarkAllAsRead(notificationRepository);
 
     // ===== USE CASES - AUTH =====
     const sendVerificationEmail = new SendVerificationEmail(
@@ -209,10 +226,11 @@ export class Dependencies {
     const deletePost = new DeletePost(postRepository, userRepository);
 
     // ===== USE CASES - COMMENTS =====
-    const createComment = new CreateComment(
+  const createComment = new CreateComment(
       commentRepository,
       userRepository,
-      postRepository
+      postRepository,
+      notificationRepository // ✅ AGREGAR
     );
     const getComments = new GetComments(commentRepository, postRepository);
     const updateComment = new UpdateComment(commentRepository, userRepository);
@@ -289,6 +307,13 @@ export class Dependencies {
     );
 
     const voteController = new VoteController(votePost, voteComment);
+
+    const notificationController = new NotificationController(
+      createNotification,
+      getUserNotifications,
+      markNotificationAsRead,
+      markAllAsRead
+    );
 
     return {
       // Repositories
@@ -372,6 +397,7 @@ export class Dependencies {
         settingsController,
         passwordResetController,
         voteController,
+        notificationController,
       },
     };
   }
