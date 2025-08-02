@@ -34,6 +34,11 @@ import { CommentVoteRepositoryImpl } from "./repositories/comment-vote.repositor
 import { PostViewRepositoryImpl } from "./repositories/post-view.repository.impl";
 import { NotificationRepositoryImpl } from "./repositories/notification.repository.impl";
 
+// Use Cases - Moderation
+import { BanUser } from "../domain/use-cases/moderation/ban-user.use-case";
+import { UnbanUser } from "../domain/use-cases/moderation/unban-user.use-case";
+import { GetBannedUsers } from "../domain/use-cases/moderation/get-banned-users.use-case";
+
 // Use Cases - Notifications
 import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
 import { GetUserNotifications } from "../domain/use-cases/notifications/get-user-notifications.use-case";
@@ -100,6 +105,7 @@ import { SettingsController } from "../presentation/controllers/settings.control
 import { PasswordResetController } from "../presentation/controllers/password-reset.controller";
 import { VoteController } from "../presentation/controllers/vote.controller";
 import { NotificationController } from "../presentation/controllers/notification.controller";
+import { ModerationController } from "../presentation/controllers/moderation.controller";
 
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
@@ -143,6 +149,21 @@ export class Dependencies {
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
+
+    // ===== USE CASES - MODERATION =====
+    const banUser = new BanUser(
+      userRepository,
+      activityLogRepository,
+      notificationRepository
+    );
+    
+    const unbanUser = new UnbanUser(
+      userRepository,
+      activityLogRepository,
+      notificationRepository
+    );
+    
+    const getBannedUsers = new GetBannedUsers(userRepository);
 
     // ===== USE CASES - NOTIFICATIONS =====
     const createNotification = new CreateNotification(notificationRepository, userRepository);
@@ -315,6 +336,12 @@ export class Dependencies {
       markAllAsRead
     );
 
+    const moderationController = new ModerationController(
+      banUser,
+      unbanUser,
+      getBannedUsers
+    );
+
     return {
       // Repositories
       repositories: {
@@ -398,6 +425,7 @@ export class Dependencies {
         passwordResetController,
         voteController,
         notificationController,
+        moderationController,
       },
     };
   }

@@ -47,6 +47,12 @@ export class LoginUser implements LoginUserUseCase {
       throw UserErrors.invalidCredentials();
     }
 
+    // 3. ✅ NUEVO: Verificar si el usuario está baneado
+    if (user.isBanned) {
+      const banInfo = user.banReason ? ` Reason: ${user.banReason}` : '';
+      throw new Error(`Your account has been banned.${banInfo}`);
+    }
+
     // 3. Verificar contraseña con bcrypt
     const isPasswordValid = bcryptAdapter.compare(password, user.passwordHash);
     if (!isPasswordValid) {

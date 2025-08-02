@@ -66,6 +66,7 @@ export class Server {
     const { InviteRoutes } = await import("./routes/invite.routes");
     const { VoteRoutes } = await import("./routes/vote.routes");
     const { NotificationRoutes } = await import("./routes/notification.routes");
+    const { ModerationRoutes } = await import("./routes/moderation.routes");
 
     // Registrar rutas de autenticación
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
@@ -78,6 +79,9 @@ export class Server {
 
      // Registrar rutas de notificaciones ✅ NUEVO
     this.app.use("/api/notifications", await NotificationRoutes.getRoutes());
+
+    // Registrar rutas de moderación ✅ NUEVO
+    this.app.use("/api/moderation", await ModerationRoutes.getRoutes());
 
     // 🔥 CORRECCIÓN CRÍTICA: Registrar rutas de comentarios con prefijo específico
     this.app.use("/api/comments", await CommentRoutes.getRoutes());
@@ -126,6 +130,7 @@ export class Server {
           console.log(`   Channels: /api/channels/*`);
           console.log(`   Invites: /api/invites/*`);
           console.log(`   Notifications: /api/notifications/*`);
+          console.log(`   Moderation: /api/moderation/*`);
         }
       });
     } catch (error) {

@@ -82,4 +82,61 @@ export class PrismaUserDatasource implements UserDatasource {
 
     return UserEntity.fromObject(user);
   }
+
+  async findBannedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { isBanned: true },
+        include: {
+          role: true,
+          bannedByUser: {
+            select: {
+              id: true,
+              username: true
+            }
+          }
+        },
+        orderBy: { bannedAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      this.prisma.user.count({ where: { isBanned: true } })
+    ]);
+
+    const userEntities = users.map(user => UserEntity.fromObject(user));
+
+    return {
+      data: userEntities,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1
+      }
+    };
+  }
+
+  async findByRole(roleName: string): Promise<UserEntity[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: {
+          name: roleName
+        }
+      },
+      include: { role: true }
+    });
+
+    return users.map(user => UserEntity.fromObject(user));
+  }
+
+  async countBannedUsers(): Promise<number> {
+    return await this.prisma.user.count({
+      where: { isBanned: true }
+    });
+  }
 }

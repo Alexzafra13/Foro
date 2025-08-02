@@ -28,4 +28,16 @@ export class UserRepositoryImpl implements UserRepository {
   async deleteById(id: number): Promise<UserEntity> {
     return await this.userDatasource.deleteById(id);
   }
+
+   async findBannedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult> {
+    return await this.userDatasource.findBannedUsers(pagination);
+  }
+
+  async findByRole(roleName: string): Promise<UserEntity[]> {
+    return await this.userDatasource.findByRole(roleName);
+  }
+
+  async countBannedUsers(): Promise<number> {
+    return await this.userDatasource.countBannedUsers();
+  }
 }
