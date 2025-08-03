@@ -10,11 +10,11 @@ export interface CreateNotificationDto {
     commentId?: number;
     mentionedBy?: number;
     votedBy?: number;
-    bannedUserId?: number;      // ✅ AGREGADO
-    bannedByUserId?: number;    // ✅ AGREGADO
-    unbannedBy?: number;        // ✅ AGREGADO
-    reason?: string;            // ✅ AGREGADO
-    [key: string]: any;         // ✅ AGREGADO: permite campos adicionales
+    bannedUserId?: number;      
+    bannedByUserId?: number;    
+    unbannedBy?: number;        
+    reason?: string;            
+    [key: string]: any;         
   };
 }
 
@@ -63,4 +63,8 @@ export abstract class NotificationDatasource {
   abstract deleteOldNotifications(olderThanDays: number): Promise<number>;
   abstract countUnread(userId: number): Promise<number>;
   abstract findUnreadByUserId(userId: number, limit?: number): Promise<NotificationEntity[]>;
+
+  // ✅ MÉTODOS ADICIONALES PARA SSE
+  abstract countUnreadByUser(userId: number): Promise<number>;
+  abstract countRecentByUser(userId: number, type: string, minutesAgo: number): Promise<number>;
 }

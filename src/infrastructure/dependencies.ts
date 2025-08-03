@@ -1,6 +1,7 @@
-// src/infrastructure/dependencies.ts - CORREGIDO RESPETANDO TU ARQUITECTURA
+// src/infrastructure/dependencies.ts - COMPLETO CON FIX DE CONEXIONES
 
-import { PrismaClient } from "@prisma/client";
+// ✅ IMPORTAR LA INSTANCIA GLOBAL DE PRISMA
+import { prisma } from "./database";
 
 // Datasources
 import { PrismaUserDatasource } from "./datasources/prisma-user.datasource";
@@ -68,7 +69,7 @@ import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-c
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
 import { GetChannel } from "../domain/use-cases/channel/get-channel.use-case";
 
-// Use Cases - Invites ✅ TODOS LOS IMPORTS CORRECTOS
+// Use Cases - Invites
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
 import { ValidateInviteCode } from "../domain/use-cases/invites/validate-invite-code.use-case";
 import { GetInviteCodes } from "../domain/use-cases/invites/get-invite-codes.use-case";
@@ -79,7 +80,7 @@ import { GetInviteStats } from "../domain/use-cases/invites/get-invite-stats.use
 import { SendVerificationEmail } from "../domain/use-cases/email/send-verification-email.use-case";
 import { VerifyEmail } from "../domain/use-cases/email/verify-email.use-case";
 
-// ✅ Use Cases - User Profile - CORREGIDOS SEGÚN TU ARQUITECTURA
+// Use Cases - User Profile
 import { GetProfile } from "../domain/use-cases/user/get-profile.use-case";
 import { UpdateProfile } from "../domain/use-cases/user/update-profile.use-case";
 import { ChangePassword } from "../domain/use-cases/user/change-password.use-case";
@@ -113,10 +114,34 @@ import { ModerationController } from "../presentation/controllers/moderation.con
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
 
+// ✅ CACHE PARA EVITAR CREAR MÚLTIPLES INSTANCIAS
+let cachedDependencies: Dependencies | null = null;
+
 export class Dependencies {
-  static async create() {
-    // Database
-    const prisma = new PrismaClient();
+  repositories: any;
+  useCases: any;
+  controllers: any;
+
+  constructor(
+    repositories: any,
+    useCases: any,
+    controllers: any
+  ) {
+    this.repositories = repositories;
+    this.useCases = useCases;
+    this.controllers = controllers;
+  }
+
+  static async create(): Promise<Dependencies> {
+    // ✅ SI YA EXISTE UNA INSTANCIA, REUTILIZARLA
+    if (cachedDependencies) {
+      return cachedDependencies;
+    }
+
+    console.log('🔧 Creating dependencies instance...');
+
+    // ✅ USAR LA INSTANCIA GLOBAL DE PRISMA EN LUGAR DE new PrismaClient()
+    // Database connection is handled by the global prisma instance
 
     // ===== DATASOURCES =====
     const userDatasource = new PrismaUserDatasource(prisma);
@@ -231,9 +256,7 @@ export class Dependencies {
       activityLogRepository
     );
 
-    // ===== USE CASES - USER PROFILE ✅ CORREGIDOS =====
-
-    // GetProfile constructor: (userRepository, userSettingsRepository, postRepository, commentRepository)
+    // ===== USE CASES - USER PROFILE =====
     const getProfile = new GetProfile(
       userRepository,
       userSettingsRepository,
@@ -241,25 +264,21 @@ export class Dependencies {
       commentRepository
     );
 
-    // UpdateProfile constructor: (userRepository, activityLogRepository)
     const updateProfile = new UpdateProfile(
       userRepository,
       activityLogRepository
     );
 
-    // ChangePassword constructor: (userRepository, activityLogRepository)
     const changePassword = new ChangePassword(
       userRepository,
       activityLogRepository
     );
 
-    // GetUserSettings constructor: (userSettingsRepository, userRepository)
     const getUserSettings = new GetUserSettings(
       userSettingsRepository,
       userRepository
     );
 
-    // UpdateUserSettings constructor: (userSettingsRepository, userRepository, activityLogRepository)
     const updateUserSettings = new UpdateUserSettings(
       userSettingsRepository,
       userRepository,
@@ -279,7 +298,7 @@ export class Dependencies {
       commentRepository,
       userRepository,
       postRepository,
-      notificationRepository // ✅ AGREGAR
+      notificationRepository
     );
     const getComments = new GetComments(commentRepository, postRepository);
     const updateComment = new UpdateComment(commentRepository, userRepository);
@@ -304,7 +323,7 @@ export class Dependencies {
     );
     const getChannel = new GetChannel(channelRepository);
 
-    // ===== USE CASES - INVITES ✅ TODOS IMPLEMENTADOS =====
+    // ===== USE CASES - INVITES =====
     const generateInviteCode = new GenerateInviteCode(
       inviteCodeRepository,
       userRepository
@@ -342,7 +361,6 @@ export class Dependencies {
       deleteComment
     );
 
-    // ✅ INVITE CONTROLLER CON TODOS LOS USE CASES
     const inviteController = new InviteController(
       generateInviteCode,
       validateInviteCode,
@@ -354,7 +372,7 @@ export class Dependencies {
     const emailVerificationController = new EmailVerificationController(
       verifyEmail,
       sendVerificationEmail,
-      userRepository // ✅ AGREGAR: Tercer parámetro requerido
+      userRepository
     );
 
     const categoryController = new CategoryController(getCategories);
@@ -391,9 +409,10 @@ export class Dependencies {
       getBannedUsers
     );
 
-    return {
+    // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
+    const dependencies = new Dependencies(
       // Repositories
-      repositories: {
+      {
         userRepository,
         postRepository,
         commentRepository,
@@ -411,7 +430,7 @@ export class Dependencies {
       },
 
       // Use Cases
-      useCases: {
+      {
         // Auth
         registerUser,
         loginUser,
@@ -449,7 +468,7 @@ export class Dependencies {
         getCategories,
         getChannel,
 
-        // ✅ INVITES - TODOS LOS USE CASES
+        // Invites
         generateInviteCode,
         validateInviteCode,
         getInviteCodes,
@@ -460,14 +479,20 @@ export class Dependencies {
         sendVerificationEmail,
         verifyEmail,
 
+        // Notifications
         createNotification,
         getUserNotifications,
         markNotificationAsRead,
         markAllAsRead,
+
+        // Moderation
+        banUser,
+        unbanUser,
+        getBannedUsers,
       },
 
       // Controllers
-      controllers: {
+      {
         authController,
         postController,
         commentController,
@@ -481,7 +506,34 @@ export class Dependencies {
         voteController,
         notificationController,
         moderationController,
-      },
-    };
+      }
+    );
+
+    // ✅ CACHEAR LA INSTANCIA
+    cachedDependencies = dependencies;
+
+    console.log('✅ Dependencies created and cached successfully');
+    return dependencies;
+  }
+
+  // ✅ MÉTODO PARA LIMPIAR CACHE (ÚTIL PARA TESTING)
+  static clearCache(): void {
+    cachedDependencies = null;
+  }
+
+  // ✅ MÉTODO PARA CLEANUP
+  static async cleanup(): Promise<void> {
+    try {
+      if (cachedDependencies) {
+        // Limpiar cache
+        cachedDependencies = null;
+      }
+      
+      // Desconectar Prisma
+      await prisma.$disconnect();
+      console.log('✅ Dependencies cleanup completed');
+    } catch (error) {
+      console.error('❌ Error during dependencies cleanup:', error);
+    }
   }
 }

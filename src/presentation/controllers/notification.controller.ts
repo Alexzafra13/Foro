@@ -5,16 +5,16 @@ import { GetUserNotifications } from '../../domain/use-cases/notifications/get-u
 import { MarkNotificationAsRead } from '../../domain/use-cases/notifications/mark-notification-as-read.use-case';
 import { MarkAllAsRead } from '../../domain/use-cases/notifications/mark-all-as-read.use-case';
 import { CustomError, DomainError } from '../../shared/errors';
+import { SSEController } from './sse.controller'; // ✅ Importación añadida
 
 export class NotificationController {
   constructor(
     private readonly createNotification: CreateNotification,
     private readonly getUserNotifications: GetUserNotifications,
     private readonly markNotificationAsRead: MarkNotificationAsRead,
-    private readonly markAllAsReadUseCase: MarkAllAsRead // ✅ RENOMBRADO para evitar conflicto
+    private readonly markAllAsReadUseCase: MarkAllAsRead
   ) {}
 
-  // GET /api/notifications - Obtener notificaciones del usuario
   async getMany(req: Request, res: Response) {
     try {
       const userId = req.user?.userId!;
@@ -40,7 +40,6 @@ export class NotificationController {
     }
   }
 
-  // GET /api/notifications/unread - Obtener solo notificaciones no leídas
   async getUnread(req: Request, res: Response) {
     try {
       const userId = req.user?.userId!;
@@ -66,7 +65,6 @@ export class NotificationController {
     }
   }
 
-  // PUT /api/notifications/:id/read - Marcar notificación como leída
   async markAsRead(req: Request, res: Response) {
     try {
       const notificationId = parseInt(req.params.id);
@@ -85,6 +83,13 @@ export class NotificationController {
         userId
       });
 
+      // ✅ Actualizar contador por SSE
+      const unread = await this.getUserNotifications.execute({
+        userId,
+        filterUnread: true
+      });
+      SSEController.sendUnreadCountToUser(userId, unread.stats.unreadCount);
+
       res.json({
         success: true,
         data: result,
@@ -95,12 +100,14 @@ export class NotificationController {
     }
   }
 
-  // PUT /api/notifications/read-all - Marcar todas como leídas
   async markAllAsRead(req: Request, res: Response) {
     try {
       const userId = req.user?.userId!;
 
-      const result = await this.markAllAsReadUseCase.execute({ userId }); // ✅ USAR el use case renombrado
+      const result = await this.markAllAsReadUseCase.execute({ userId });
+
+      // ✅ Actualizar contador por SSE
+      SSEController.sendUnreadCountToUser(userId, 0);
 
       res.json({
         success: true,
@@ -112,10 +119,8 @@ export class NotificationController {
     }
   }
 
-  // POST /api/notifications/test - Crear notificación de prueba (solo desarrollo)
   async createTest(req: Request, res: Response) {
     try {
-      // Solo permitir en desarrollo
       if (process.env.NODE_ENV === 'production') {
         return res.status(403).json({
           success: false,

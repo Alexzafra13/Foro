@@ -7,12 +7,67 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      # ✅ CONFIGURACIÓN PARA ALTO TRÁFICO
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
       - ./postgres:/var/lib/postgresql/data
+      # ✅ CONFIGURACIÓN PERSONALIZADA DE POSTGRES
+      - ./postgres-config/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres-config/pg_hba.conf:/etc/postgresql/pg_hba.conf
     ports:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # ✅ AGREGAR CONFIGURACIÓN PERSONALIZADA
+    command: >
+      postgres 
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
+
+  # ✅ PGBOUNCER - ADMINISTRADOR DE CONEXIONES
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    restart: unless-stopped
+    environment:
+      # Configuración de conexión a PostgreSQL
+      DATABASES_HOST: postgres
+      DATABASES_PORT: 5432
+      DATABASES_USER: ${POSTGRES_USER}
+      DATABASES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASES_DBNAME: ${POSTGRES_DB}
+      
+      # ✅ CONFIGURACIÓN OPTIMIZADA PARA FORO
+      POOL_MODE: transaction              # Modo más eficiente para APIs REST
+      MAX_CLIENT_CONN: 1000              # Máximo de clientes simultáneos
+      DEFAULT_POOL_SIZE: 30              # Conexiones activas a PostgreSQL
+      MIN_POOL_SIZE: 10                  # Mínimo de conexiones
+      RESERVE_POOL_SIZE: 10              # Conexiones de reserva
+      MAX_DB_CONNECTIONS: 50             # Máximo absoluto a PostgreSQL
+      
+      # ✅ TIMEOUTS OPTIMIZADOS
+      SERVER_IDLE_TIMEOUT: 600           # 10 minutos
+      CLIENT_IDLE_TIMEOUT: 300           # 5 minutos
+      SERVER_CONNECT_TIMEOUT: 15         # 15 segundos
+      QUERY_TIMEOUT: 0                   # Sin timeout de query
+      
+      # ✅ CONFIGURACIÓN DE SEGURIDAD
+      AUTH_TYPE: scram-sha-256
+      
+      # ✅ CONFIGURACIÓN DE LOGS
+      LOG_CONNECTIONS: 1
+      LOG_DISCONNECTIONS: 1
+      VERBOSE: 1
+      
+    ports:
+      - "6432:6432"  # ← PUERTO DE PGBOUNCER (diferente a postgres)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "psql postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:6432/${POSTGRES_DB} -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,3 +83,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+# ✅ CONFIGURACIÓN DE RED OPTIMIZADA
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

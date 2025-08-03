@@ -1,3 +1,4 @@
+// src/domain/repositories/notification.repository.ts
 import { NotificationEntity } from '../entities/notification.entity';
 import {
   CreateNotificationDto,
@@ -20,4 +21,8 @@ export abstract class NotificationRepository {
   abstract deleteOldNotifications(olderThanDays: number): Promise<number>;
   abstract countUnread(userId: number): Promise<number>;
   abstract findUnreadByUserId(userId: number, limit?: number): Promise<NotificationEntity[]>;
+
+  // ✅ MÉTODOS ADICIONALES PARA SSE
+  abstract countUnreadByUser(userId: number): Promise<number>;
+  abstract countRecentByUser(userId: number, type: string, minutesAgo: number): Promise<number>;
 }

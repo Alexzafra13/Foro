@@ -1,3 +1,4 @@
+// src/infrastructure/repositories/notification.repository.impl.ts
 import { NotificationEntity } from '../../domain/entities/notification.entity';
 import { NotificationRepository } from '../../domain/repositories/notification.repository';
 import {
@@ -49,5 +50,14 @@ export class NotificationRepositoryImpl implements NotificationRepository {
 
   async findUnreadByUserId(userId: number, limit?: number): Promise<NotificationEntity[]> {
     return await this.datasource.findUnreadByUserId(userId, limit);
+  }
+
+  // ✅ MÉTODOS ADICIONALES PARA SSE
+  async countUnreadByUser(userId: number): Promise<number> {
+    return await this.datasource.countUnreadByUser(userId);
+  }
+
+  async countRecentByUser(userId: number, type: string, minutesAgo: number): Promise<number> {
+    return await this.datasource.countRecentByUser(userId, type, minutesAgo);
   }
 }

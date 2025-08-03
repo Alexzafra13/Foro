@@ -202,6 +202,26 @@ export class PrismaNotificationDatasource implements NotificationDatasource {
     return notifications.map(n => NotificationEntity.fromObject(n));
   }
 
+  // ✅ MÉTODOS ADICIONALES PARA SSE (los únicos que faltan)
+  async countUnreadByUser(userId: number): Promise<number> {
+    // Alias para countUnread para compatibilidad con SSE
+    return await this.countUnread(userId);
+  }
+
+  async countRecentByUser(userId: number, type: string, minutesAgo: number): Promise<number> {
+    const since = new Date(Date.now() - minutesAgo * 60 * 1000);
+    
+    return await this.prisma.notification.count({
+      where: {
+        userId,
+        type,
+        createdAt: {
+          gte: since
+        }
+      }
+    });
+  }
+
   // Métodos auxiliares privados
   private buildWhereClause(userId: number, filters?: NotificationFilters): any {
     const where: any = { userId };
