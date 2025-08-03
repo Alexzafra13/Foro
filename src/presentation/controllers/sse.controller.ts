@@ -1,4 +1,4 @@
-// src/presentation/controllers/sse.controller.ts
+// src/presentation/controllers/sse.controller.ts - CORS CORREGIDO
 import { Request, Response } from 'express';
 
 interface SSEConnection {
@@ -25,12 +25,12 @@ export class SSEController {
 
     console.log(`🔌 SSE connection request from user ${userId}`);
 
-    // Configurar headers SSE
+    // ✅ CORREGIR HEADERS SSE PARA CORS
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': 'http://localhost:5173', // ✅ ESPECÍFICO, NO WILDCARD
       'Access-Control-Allow-Headers': 'Cache-Control, Authorization',
       'Access-Control-Allow-Credentials': 'true',
     });

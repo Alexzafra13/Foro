@@ -1,4 +1,4 @@
-// src/presentation/middlewares/auth.middleware.ts - CORREGIDO
+// src/presentation/middlewares/auth.middleware.ts - CORREGIDO CON SOPORTE SSE
 import { Request, Response, NextFunction } from "express";
 import { JwtAdapter } from "../../config/jwt.adapter";
 import { AuthErrors } from "../../shared/errors";
@@ -21,21 +21,23 @@ declare global {
 export class AuthMiddleware {
   static async validateToken(req: Request, res: Response, next: NextFunction) {
     try {
-      // Obtener token del header
+      let token: string | undefined;
+
+      // ✅ MODIFICADO: Obtener token del header O query parameter (para SSE)
       const authorization = req.headers.authorization;
-      if (!authorization) {
-        throw AuthErrors.tokenRequired();
+      const queryToken = req.query.token as string;
+
+      if (authorization && authorization.startsWith("Bearer ")) {
+        // Token del header (método normal)
+        token = authorization.split(" ")[1];
+      } else if (queryToken) {
+        // Token del query parameter (para SSE)
+        token = queryToken;
+        console.log('🔑 Using token from query parameter for SSE');
       }
 
-      // Verificar formato Bearer token
-      if (!authorization.startsWith("Bearer ")) {
-        throw AuthErrors.invalidToken();
-      }
-
-      // Extraer token
-      const token = authorization.split(" ")[1];
       if (!token) {
-        throw AuthErrors.invalidToken();
+        throw AuthErrors.tokenRequired();
       }
 
       // Validar token
@@ -60,6 +62,8 @@ export class AuthMiddleware {
           isEmailVerified: user.isEmailVerified || false,
           role: user.role?.name  // ✅ CAMBIADO: extraer el name del role
         };
+
+        console.log(`✅ Token validated for user ${user.id} (${user.email}) via ${queryToken ? 'query' : 'header'}`);
       } catch (dbError) {
         // Si falla la consulta a BD, usar solo datos del JWT (fallback)
         console.warn('Error fetching user details, using JWT payload only:', dbError);
@@ -72,6 +76,8 @@ export class AuthMiddleware {
 
       next();
     } catch (error) {
+      console.error('❌ Auth middleware error:', error);
+      
       if (error instanceof Error && "statusCode" in error) {
         return res.status((error as any).statusCode).json({
           success: false,
@@ -88,40 +94,46 @@ export class AuthMiddleware {
   // Middleware opcional para rutas que pueden o no tener autenticación
   static async optionalAuth(req: Request, res: Response, next: NextFunction) {
     const authorization = req.headers.authorization;
-    
-    if (!authorization || !authorization.startsWith("Bearer ")) {
+    const queryToken = req.query.token as string;
+    let token: string | undefined;
+
+    // ✅ MODIFICADO: También soportar query token en auth opcional
+    if (authorization && authorization.startsWith("Bearer ")) {
+      token = authorization.split(" ")[1];
+    } else if (queryToken) {
+      token = queryToken;
+    }
+
+    if (!token) {
       return next();
     }
 
-    const token = authorization.split(" ")[1];
-    if (token) {
-      const payload = JwtAdapter.validateToken<{
-        userId: number;
-        email: string;
-      }>(token);
-      
-      if (payload) {
-        // También obtener info completa para auth opcional
-        try {
-          const deps = await Dependencies.create();
-          const user = await deps.repositories.userRepository.findById(payload.userId);
-          
-          if (user) {
-            req.user = {
-              userId: user.id,
-              email: user.email,
-              isEmailVerified: user.isEmailVerified || false,
-              role: user.role?.name  // ✅ CAMBIADO: extraer el name del role
-            };
-          }
-        } catch (dbError) {
-          // Fallback a datos del JWT
+    const payload = JwtAdapter.validateToken<{
+      userId: number;
+      email: string;
+    }>(token);
+    
+    if (payload) {
+      // También obtener info completa para auth opcional
+      try {
+        const deps = await Dependencies.create();
+        const user = await deps.repositories.userRepository.findById(payload.userId);
+        
+        if (user) {
           req.user = {
-            userId: payload.userId,
-            email: payload.email,
-            isEmailVerified: false
+            userId: user.id,
+            email: user.email,
+            isEmailVerified: user.isEmailVerified || false,
+            role: user.role?.name  // ✅ CAMBIADO: extraer el name del role
           };
         }
+      } catch (dbError) {
+        // Fallback a datos del JWT
+        req.user = {
+          userId: payload.userId,
+          email: payload.email,
+          isEmailVerified: false
+        };
       }
     }
 
