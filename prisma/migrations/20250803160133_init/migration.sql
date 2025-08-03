@@ -125,6 +125,18 @@ CREATE TABLE "posts" (
 );
 
 -- CreateTable
+CREATE TABLE "post_views" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "post_id" INTEGER NOT NULL,
+    "ip_address" VARCHAR(45),
+    "user_agent" TEXT,
+    "viewed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "post_views_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "comments" (
     "id" SERIAL NOT NULL,
     "post_id" INTEGER NOT NULL,
@@ -242,6 +254,15 @@ CREATE UNIQUE INDEX "channels_name_key" ON "channels"("name");
 CREATE UNIQUE INDEX "categories_name_key" ON "categories"("name");
 
 -- CreateIndex
+CREATE INDEX "post_views_post_id_viewed_at_idx" ON "post_views"("post_id", "viewed_at");
+
+-- CreateIndex
+CREATE INDEX "post_views_user_id_viewed_at_idx" ON "post_views"("user_id", "viewed_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "post_views_user_id_post_id_key" ON "post_views"("user_id", "post_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "comment_votes_user_id_comment_id_key" ON "comment_votes"("user_id", "comment_id");
 
 -- CreateIndex
@@ -285,6 +306,12 @@ ALTER TABLE "posts" ADD CONSTRAINT "posts_channel_id_fkey" FOREIGN KEY ("channel
 
 -- AddForeignKey
 ALTER TABLE "posts" ADD CONSTRAINT "posts_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "post_views" ADD CONSTRAINT "post_views_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "post_views" ADD CONSTRAINT "post_views_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "comments" ADD CONSTRAINT "comments_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
