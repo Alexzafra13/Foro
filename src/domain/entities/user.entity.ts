@@ -18,7 +18,11 @@ export class UserEntity {
     public isBanned?: boolean,
     public bannedAt?: Date | null,
     public bannedBy?: number | null,
-    public banReason?: string | null
+    public banReason?: string | null,
+    public bannedByUser?: {          // ✅ AGREGADO
+      id: number;
+      username: string;
+    } | null
   ) {}
 
   static fromObject(object: { [key: string]: any }): UserEntity {
@@ -26,7 +30,7 @@ export class UserEntity {
       id, username, email, passwordHash, reputation, 
       roleId, createdAt, role, avatarUrl, bio,
       isEmailVerified, emailVerifiedAt, updatedAt,
-      lastLoginAt, isBanned, bannedAt, bannedBy, banReason
+      lastLoginAt, isBanned, bannedAt, bannedBy, banReason,bannedByUser
     } = object;
     
     if (!id) throw new Error('User id is required');
@@ -45,7 +49,8 @@ export class UserEntity {
       isBanned || false,
       bannedAt || null,
       bannedBy || null,
-      banReason || null
+      banReason || null,
+      bannedByUser || null
     );
   }
 

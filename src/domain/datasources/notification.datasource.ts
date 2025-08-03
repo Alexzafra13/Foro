@@ -10,6 +10,11 @@ export interface CreateNotificationDto {
     commentId?: number;
     mentionedBy?: number;
     votedBy?: number;
+    bannedUserId?: number;      // ✅ AGREGADO
+    bannedByUserId?: number;    // ✅ AGREGADO
+    unbannedBy?: number;        // ✅ AGREGADO
+    reason?: string;            // ✅ AGREGADO
+    [key: string]: any;         // ✅ AGREGADO: permite campos adicionales
   };
 }
 

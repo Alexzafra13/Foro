@@ -6,8 +6,8 @@ export interface CreateActivityLogDto {
   userId: number | null;
   action: string;
   details: any;
-  ipAddress: string | null;
-  userAgent: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }
 
 export interface ActivityLogFilters {

@@ -98,13 +98,14 @@ export class ModerationController {
     }
   }
 
-  private getClientIP(req: Request): string | null {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
-    }
-    return req.socket.remoteAddress || null;
+ private getClientIP(req: Request): string | undefined {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
   }
+  return req.socket.remoteAddress || undefined;
+}
+
 
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);

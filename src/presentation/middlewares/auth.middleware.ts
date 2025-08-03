@@ -1,3 +1,4 @@
+// src/presentation/middlewares/auth.middleware.ts - CORREGIDO
 import { Request, Response, NextFunction } from "express";
 import { JwtAdapter } from "../../config/jwt.adapter";
 import { AuthErrors } from "../../shared/errors";
@@ -10,11 +11,8 @@ declare global {
       user?: {
         userId: number;
         email: string;
-        isEmailVerified?: boolean; // ← AGREGADO para verificación
-        role?: {
-          id: number;
-          name: string;
-        };
+        isEmailVerified?: boolean;
+        role?: string;  // ✅ CAMBIADO: ahora es string, no objeto
       };
     }
   }
@@ -46,7 +44,7 @@ export class AuthMiddleware {
         throw AuthErrors.invalidToken();
       }
 
-      // ✅ NUEVO: Obtener información completa del usuario para verificación de email
+      // Obtener información completa del usuario para verificación de email
       try {
         const deps = await Dependencies.create();
         const user = await deps.repositories.userRepository.findById(payload.userId);
@@ -59,8 +57,8 @@ export class AuthMiddleware {
         req.user = {
           userId: user.id,
           email: user.email,
-          isEmailVerified: user.isEmailVerified || false, // ← IMPORTANTE
-          role: user.role
+          isEmailVerified: user.isEmailVerified || false,
+          role: user.role?.name  // ✅ CAMBIADO: extraer el name del role
         };
       } catch (dbError) {
         // Si falla la consulta a BD, usar solo datos del JWT (fallback)
@@ -68,7 +66,7 @@ export class AuthMiddleware {
         req.user = {
           userId: payload.userId,
           email: payload.email,
-          isEmailVerified: false // ← Por seguridad, asumir no verificado
+          isEmailVerified: false
         };
       }
 
@@ -103,7 +101,7 @@ export class AuthMiddleware {
       }>(token);
       
       if (payload) {
-        // ✅ NUEVO: También obtener info completa para auth opcional
+        // También obtener info completa para auth opcional
         try {
           const deps = await Dependencies.create();
           const user = await deps.repositories.userRepository.findById(payload.userId);
@@ -113,7 +111,7 @@ export class AuthMiddleware {
               userId: user.id,
               email: user.email,
               isEmailVerified: user.isEmailVerified || false,
-              role: user.role
+              role: user.role?.name  // ✅ CAMBIADO: extraer el name del role
             };
           }
         } catch (dbError) {

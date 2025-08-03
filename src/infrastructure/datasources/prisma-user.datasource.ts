@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { UserDatasource, CreateUserDto } from '../../domain/datasources/user.datasource';
 import { UserEntity } from '../../domain/entities/user.entity';
+import { PaginatedUsersResult } from '../../domain/repositories/user.repository';
 
 export class PrismaUserDatasource implements UserDatasource {
   constructor(private readonly prisma: PrismaClient) {}

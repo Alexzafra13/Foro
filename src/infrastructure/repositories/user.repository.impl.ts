@@ -1,5 +1,5 @@
 import { UserEntity } from '../../domain/entities/user.entity';
-import { UserRepository } from '../../domain/repositories/user.repository';
+import { UserRepository, PaginatedUsersResult } from '../../domain/repositories/user.repository';
 import { UserDatasource, CreateUserDto } from '../../domain/datasources/user.datasource';
 
 export class UserRepositoryImpl implements UserRepository {

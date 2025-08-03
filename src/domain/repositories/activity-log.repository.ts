@@ -1,11 +1,12 @@
+// src/domain/repositories/activity-log.repository.ts - ACTUALIZADO
 import { ActivityLogEntity } from '../entities/activity-log.entity';
 
 export interface CreateActivityLogDto {
   userId: number | null;
   action: string;
   details: any;
-  ipAddress: string | null;
-  userAgent: string | null;
+  ipAddress?: string | null;  // ✅ CAMBIADO: ahora acepta undefined
+  userAgent?: string | null;  // ✅ CAMBIADO: ahora acepta undefined
 }
 
 export interface ActivityLogFilters {
@@ -18,6 +19,8 @@ export interface ActivityLogFilters {
 export interface ActivityLogPagination {
   page: number;
   limit: number;
+  sortBy?: 'createdAt' | 'action';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export abstract class ActivityLogRepository {
@@ -41,5 +44,5 @@ export abstract class ActivityLogRepository {
     page: number;
     limit: number;
   }>;
-  abstract deleteOlderThan(days: number): Promise<number>; // Cleanup old logs
+  abstract deleteOlderThan(days: number): Promise<number>;
 }

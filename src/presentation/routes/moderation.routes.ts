@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
-import { RoleMiddleware } from '../middlewares/role.middleware';
+import { RoleMiddleware } from '../middlewares/role.middleware'; 
 
 export class ModerationRoutes {
   static async getRoutes(): Promise<Router> {
