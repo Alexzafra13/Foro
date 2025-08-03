@@ -83,7 +83,10 @@ import { VerifyEmail } from "../domain/use-cases/email/verify-email.use-case";
 import { GetProfile } from "../domain/use-cases/user/get-profile.use-case";
 import { UpdateProfile } from "../domain/use-cases/user/update-profile.use-case";
 import { ChangePassword } from "../domain/use-cases/user/change-password.use-case";
-import { GetUserSettings, UpdateUserSettings } from '../domain/use-cases/user/update-user-settings.use-case';
+import {
+  GetUserSettings,
+  UpdateUserSettings,
+} from "../domain/use-cases/user/update-user-settings.use-case";
 
 // Use Cases - Votes
 import { VotePost } from "../domain/use-cases/votes/vote-post.use-case";
@@ -119,13 +122,16 @@ export class Dependencies {
     const userDatasource = new PrismaUserDatasource(prisma);
     const postDatasource = new PrismaPostDatasource(prisma);
     const inviteCodeDatasource = new PrismaInviteCodeDatasource(prisma);
-    const emailVerificationTokenDatasource = new PrismaEmailVerificationTokenDatasource(prisma);
+    const emailVerificationTokenDatasource =
+      new PrismaEmailVerificationTokenDatasource(prisma);
     const commentDatasource = new PrismaCommentDatasource(prisma);
     const categoryDatasource = new PrismaCategoryDatasource(prisma);
     const channelDatasource = new PrismaChannelDatasource(prisma);
     const userSettingsDatasource = new PrismaUserSettingsDatasource(prisma);
     const activityLogDatasource = new PrismaActivityLogDatasource(prisma);
-    const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(prisma);
+    const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(
+      prisma
+    );
     const voteDatasource = new PrismaVoteDatasource(prisma);
     const commentVoteDatasource = new PrismaCommentVoteDatasource(prisma);
     const postViewDatasource = new PrismaPostViewDatasource(prisma);
@@ -134,18 +140,33 @@ export class Dependencies {
     // ===== REPOSITORIES =====
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
-    const inviteCodeRepository = new InviteCodeRepositoryImpl(inviteCodeDatasource);
-    const emailVerificationTokenRepository = new EmailVerificationTokenRepositoryImpl(emailVerificationTokenDatasource);
+    const inviteCodeRepository = new InviteCodeRepositoryImpl(
+      inviteCodeDatasource
+    );
+    const emailVerificationTokenRepository =
+      new EmailVerificationTokenRepositoryImpl(
+        emailVerificationTokenDatasource
+      );
     const commentRepository = new CommentRepositoryImpl(commentDatasource);
     const categoryRepository = new CategoryRepositoryImpl(categoryDatasource);
     const channelRepository = new ChannelRepositoryImpl(channelDatasource);
-    const userSettingsRepository = new UserSettingsRepositoryImpl(userSettingsDatasource);
-    const activityLogRepository = new ActivityLogRepositoryImpl(activityLogDatasource);
-    const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(passwordResetTokenDatasource);
+    const userSettingsRepository = new UserSettingsRepositoryImpl(
+      userSettingsDatasource
+    );
+    const activityLogRepository = new ActivityLogRepositoryImpl(
+      activityLogDatasource
+    );
+    const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(
+      passwordResetTokenDatasource
+    );
     const voteRepository = new VoteRepositoryImpl(voteDatasource);
-    const commentVoteRepository = new CommentVoteRepositoryImpl(commentVoteDatasource);
+    const commentVoteRepository = new CommentVoteRepositoryImpl(
+      commentVoteDatasource
+    );
     const postViewRepository = new PostViewRepositoryImpl(postViewDatasource);
-    const notificationRepository = new NotificationRepositoryImpl(notificationDatasource);
+    const notificationRepository = new NotificationRepositoryImpl(
+      notificationDatasource
+    );
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
@@ -156,19 +177,26 @@ export class Dependencies {
       activityLogRepository,
       notificationRepository
     );
-    
+
     const unbanUser = new UnbanUser(
       userRepository,
       activityLogRepository,
       notificationRepository
     );
-    
+
     const getBannedUsers = new GetBannedUsers(userRepository);
 
     // ===== USE CASES - NOTIFICATIONS =====
-    const createNotification = new CreateNotification(notificationRepository, userRepository);
-    const getUserNotifications = new GetUserNotifications(notificationRepository);
-    const markNotificationAsRead = new MarkNotificationAsRead(notificationRepository);
+    const createNotification = new CreateNotification(
+      notificationRepository,
+      userRepository
+    );
+    const getUserNotifications = new GetUserNotifications(
+      notificationRepository
+    );
+    const markNotificationAsRead = new MarkNotificationAsRead(
+      notificationRepository
+    );
     const markAllAsRead = new MarkAllAsRead(notificationRepository);
 
     // ===== USE CASES - AUTH =====
@@ -192,11 +220,11 @@ export class Dependencies {
     );
 
     const requestPasswordReset = new RequestPasswordReset(
-  userRepository,
-  passwordResetTokenRepository,
-  emailAdapter,
-  activityLogRepository  
-);
+      userRepository,
+      passwordResetTokenRepository,
+      emailAdapter,
+      activityLogRepository
+    );
     const resetPassword = new ResetPassword(
       passwordResetTokenRepository,
       userRepository,
@@ -204,7 +232,7 @@ export class Dependencies {
     );
 
     // ===== USE CASES - USER PROFILE ✅ CORREGIDOS =====
-    
+
     // GetProfile constructor: (userRepository, userSettingsRepository, postRepository, commentRepository)
     const getProfile = new GetProfile(
       userRepository,
@@ -247,7 +275,7 @@ export class Dependencies {
     const deletePost = new DeletePost(postRepository, userRepository);
 
     // ===== USE CASES - COMMENTS =====
-  const createComment = new CreateComment(
+    const createComment = new CreateComment(
       commentRepository,
       userRepository,
       postRepository,
@@ -258,21 +286,42 @@ export class Dependencies {
     const deleteComment = new DeleteComment(commentRepository, userRepository);
 
     // ===== USE CASES - VOTES =====
-    const votePost = new VotePost(voteRepository, postRepository, userRepository);
-    const voteComment = new VoteComment(commentVoteRepository, commentRepository, userRepository);
+    const votePost = new VotePost(
+      voteRepository,
+      postRepository,
+      userRepository
+    );
+    const voteComment = new VoteComment(
+      commentVoteRepository,
+      commentRepository,
+      userRepository
+    );
 
     // ===== USE CASES - CATEGORIES & CHANNELS =====
-    const getCategories = new GetCategories(categoryRepository, channelRepository);
+    const getCategories = new GetCategories(
+      categoryRepository,
+      channelRepository
+    );
     const getChannel = new GetChannel(channelRepository);
 
     // ===== USE CASES - INVITES ✅ TODOS IMPLEMENTADOS =====
-    const generateInviteCode = new GenerateInviteCode(inviteCodeRepository, userRepository);
+    const generateInviteCode = new GenerateInviteCode(
+      inviteCodeRepository,
+      userRepository
+    );
     const validateInviteCode = new ValidateInviteCode(inviteCodeRepository);
-    const getInviteCodes = new GetInviteCodes(inviteCodeRepository, userRepository);
-    const deleteInviteCode = new DeleteInviteCode(inviteCodeRepository, userRepository);
-    const getInviteStats = new GetInviteStats(inviteCodeRepository, userRepository);
-
-   
+    const getInviteCodes = new GetInviteCodes(
+      inviteCodeRepository,
+      userRepository
+    );
+    const deleteInviteCode = new DeleteInviteCode(
+      inviteCodeRepository,
+      userRepository
+    );
+    const getInviteStats = new GetInviteStats(
+      inviteCodeRepository,
+      userRepository
+    );
 
     // ===== CONTROLLERS =====
     const authController = new AuthController(registerUser, loginUser);
@@ -287,7 +336,7 @@ export class Dependencies {
     );
 
     const commentController = new CommentController(
-      createComment, 
+      createComment,
       getComments,
       updateComment,
       deleteComment
@@ -297,16 +346,16 @@ export class Dependencies {
     const inviteController = new InviteController(
       generateInviteCode,
       validateInviteCode,
-      getInviteCodes,      
-      deleteInviteCode,    
-      getInviteStats       
+      getInviteCodes,
+      deleteInviteCode,
+      getInviteStats
     );
 
-   const emailVerificationController = new EmailVerificationController(
-  verifyEmail,
-  sendVerificationEmail,
-  userRepository // ✅ AGREGAR: Tercer parámetro requerido
-);
+    const emailVerificationController = new EmailVerificationController(
+      verifyEmail,
+      sendVerificationEmail,
+      userRepository // ✅ AGREGAR: Tercer parámetro requerido
+    );
 
     const categoryController = new CategoryController(getCategories);
     const channelController = new ChannelController(getChannel);
@@ -358,6 +407,7 @@ export class Dependencies {
         voteRepository,
         postViewRepository,
         commentVoteRepository,
+        notificationRepository,
       },
 
       // Use Cases
@@ -367,12 +417,12 @@ export class Dependencies {
         loginUser,
         requestPasswordReset,
         resetPassword,
-        
+
         // Profile
         getProfile,
         updateProfile,
         changePassword,
-        
+
         // Settings
         getUserSettings,
         updateUserSettings,
@@ -409,6 +459,11 @@ export class Dependencies {
         // Email
         sendVerificationEmail,
         verifyEmail,
+
+        createNotification,
+        getUserNotifications,
+        markNotificationAsRead,
+        markAllAsRead,
       },
 
       // Controllers
