@@ -1,11 +1,10 @@
 // src/domain/use-cases/notifications/create-notification.use-case.ts
 
-import { NotificationRepository } from '@/domain/repositories/notification.repository';
-import { UserRepository } from '@/domain/repositories/user.repository';
-import { NotificationType } from '@/domain/entities/notification.entity';
+import { NotificationRepository } from '@/domain/repositories/notification.repository'; 
+import { UserRepository } from '@/domain/repositories/user.repository'; 
+import { NotificationType } from '@/domain/entities/notification.entity'; 
 import { UserErrors } from '@/shared';
 
-// ✅ MANTENER TUS INTERFACES ORIGINALES
 export interface CreateNotificationRequestDto {
   userId: number;
   type: NotificationType;
@@ -42,17 +41,17 @@ export class CreateNotification {
       throw UserErrors.userNotFound(userId);
     }
 
-    // 2. Crear notificación
+    // 2. Crear notificación usando el repository (que usa datasource)
     const notification = await this.notificationRepository.create({
       userId,
-      type: type as string, // ✅ CONVERTIR ENUM A STRING
+      type: type as string, // Convertir type a string
       content,
       relatedData
     });
 
     // ✅ 3. SSE CON MANEJO CORRECTO DE ERRORES
     try {
-      // Importar dinámicamente para evitar dependencias circulares
+      // Import dinámico para evitar dependencias circulares
       const { SSEController } = await import('../../../presentation/controllers/sse.controller');
       
       // Formatear para SSE
@@ -76,7 +75,7 @@ export class CreateNotification {
         const unreadCount = await this.notificationRepository.countUnreadByUser(userId);
         SSEController.sendUnreadCountToUser(userId, unreadCount);
       }
-    } catch (error: unknown) { // ✅ TIPO EXPLÍCITO
+    } catch (error: unknown) {
       // Si falla SSE, no es crítico - la notificación ya está en BD
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.warn('SSE not available or failed:', errorMessage);
@@ -93,26 +92,35 @@ export class CreateNotification {
     };
   }
 
-  // ✅ MÉTODOS HELPER OPCIONALES PARA CASOS COMUNES
+  // ✅ MÉTODOS HELPER USANDO STRINGS DIRECTOS (TU ARQUITECTURA ACTUAL)
   
   // Crear notificación de respuesta a post
   static forPostReply(postAuthorId: number, postId: number, commentId: number, replierName?: string): CreateNotificationRequestDto {
     return {
       userId: postAuthorId,
-      type: NotificationType.POST_REPLY, // ✅ USAR ENUM CORRECTAMENTE
+      type: 'post_reply', // ✅ STRING DIRECTO
       content: replierName ? `${replierName} respondió a tu post` : 'Alguien respondió a tu post',
       relatedData: { postId, commentId }
     };
   }
 
-  // Crear notificación de voto
-  static forVote(targetUserId: number, postId?: number, commentId?: number, voterName?: string): CreateNotificationRequestDto {
-    const target = postId ? 'post' : 'comentario';
+  // Crear notificación de voto en post
+  static forPostVote(targetUserId: number, postId: number, voterName?: string): CreateNotificationRequestDto {
     return {
       userId: targetUserId,
-      type: NotificationType.VOTE, // ✅ USAR ENUM CORRECTAMENTE
-      content: voterName ? `${voterName} votó tu ${target}` : `Alguien votó tu ${target}`,
-      relatedData: { postId, commentId }
+      type: 'post_vote', // ✅ STRING DIRECTO
+      content: voterName ? `${voterName} votó tu post` : 'Alguien votó tu post',
+      relatedData: { postId }
+    };
+  }
+
+  // Crear notificación de voto en comentario
+  static forCommentVote(targetUserId: number, commentId: number, voterName?: string): CreateNotificationRequestDto {
+    return {
+      userId: targetUserId,
+      type: 'comment_vote', // ✅ STRING DIRECTO
+      content: voterName ? `${voterName} votó tu comentario` : 'Alguien votó tu comentario',
+      relatedData: { commentId }
     };
   }
 
@@ -120,9 +128,29 @@ export class CreateNotification {
   static forMention(mentionedUserId: number, postId?: number, commentId?: number, mentionerName?: string): CreateNotificationRequestDto {
     return {
       userId: mentionedUserId,
-      type: NotificationType.MENTION, // ✅ USAR ENUM CORRECTAMENTE
+      type: 'mention', // ✅ STRING DIRECTO
       content: mentionerName ? `${mentionerName} te mencionó` : 'Alguien te mencionó',
       relatedData: { postId, commentId }
+    };
+  }
+
+  // Crear notificación de bienvenida
+  static forWelcome(userId: number, username?: string): CreateNotificationRequestDto {
+    return {
+      userId,
+      type: 'welcome', // ✅ STRING DIRECTO
+      content: username ? `¡Bienvenido/a al foro, ${username}!` : '¡Bienvenido/a al foro!',
+      relatedData: {}
+    };
+  }
+
+  // Crear notificación de sistema
+  static forSystem(userId: number, message: string): CreateNotificationRequestDto {
+    return {
+      userId,
+      type: 'system', // ✅ STRING DIRECTO
+      content: message,
+      relatedData: {}
     };
   }
 }

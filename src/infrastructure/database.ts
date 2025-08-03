@@ -1,4 +1,4 @@
-// src/infrastructure/database.ts - VERSIÓN FINAL SIMPLE Y ROBUSTA
+// src/infrastructure/database.ts - SIN EVENT LISTENERS QUE CIERREN AUTOMÁTICAMENTE
 import { PrismaClient } from '@prisma/client';
 
 // ✅ CONFIGURACIÓN OPTIMIZADA PARA PGBOUNCER + ALTO TRÁFICO
@@ -112,7 +112,7 @@ export async function getConnectionStats(): Promise<{
   }
 }
 
-// ✅ FUNCIÓN LIMPIA DE DESCONEXIÓN
+// ✅ FUNCIÓN LIMPIA DE DESCONEXIÓN (SOLO CUANDO SE LLAME EXPLÍCITAMENTE)
 export async function disconnectDatabase(): Promise<void> {
   try {
     await prisma.$disconnect();
@@ -122,15 +122,6 @@ export async function disconnectDatabase(): Promise<void> {
   }
 }
 
-// ✅ MANEJO DE SEÑALES DE CIERRE
-process.on('beforeExit', async () => {
-  await disconnectDatabase();
-});
-
-process.on('SIGINT', async () => {
-  await disconnectDatabase();
-});
-
-process.on('SIGTERM', async () => {
-  await disconnectDatabase();
-});
+// ✅ REMOVIDO: Los event listeners automáticos que estaban causando el problema
+// No queremos que la BD se desconecte automáticamente
+// Solo se desconectará cuando explícitamente llamemos a disconnectDatabase()
