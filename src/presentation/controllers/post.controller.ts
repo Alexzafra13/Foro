@@ -229,7 +229,7 @@ export class PostController {
       }
 
       // Solo administradores pueden ver estadísticas detalladas
-      const userRole = req.user?.role?.name;
+      const userRole = req.user?.role;
       if (!['admin', 'moderator'].includes(userRole || '')) {
         return res.status(403).json({
           success: false,
