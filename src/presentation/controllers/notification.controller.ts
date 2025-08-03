@@ -65,6 +65,45 @@ export class NotificationController {
     }
   }
 
+  // ✅ NUEVO: POST /api/notifications - Crear notificación
+  async create(req: Request, res: Response) {
+    try {
+      const { userId, type, content, relatedData } = req.body;
+      
+      // Validaciones básicas
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: 'userId is required',
+          code: 'MISSING_USER_ID'
+        });
+      }
+      
+      if (!type) {
+        return res.status(400).json({
+          success: false,
+          error: 'type is required',
+          code: 'MISSING_TYPE'
+        });
+      }
+
+      const result = await this.createNotification.execute({
+        userId,
+        type,
+        content,
+        relatedData
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'Notification created successfully'
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error creating notification');
+    }
+  }
+
   async markAsRead(req: Request, res: Response) {
     try {
       const notificationId = parseInt(req.params.id);
@@ -163,7 +202,7 @@ export class NotificationController {
       return res.status(error.statusCode).json({
         success: false,
         error: error.message,
-        code: error.name
+        code: 'INTERNAL_ERROR'
       });
     }
 

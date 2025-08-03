@@ -31,6 +31,10 @@ export class NotificationRoutes {
       deps.controllers.notificationController.markAsRead.bind(deps.controllers.notificationController)
     );
 
+    router.post('/',
+  deps.controllers.notificationController.create.bind(deps.controllers.notificationController)
+);
+
     // POST /api/notifications/test - Crear notificación de prueba (solo desarrollo)
     if (process.env.NODE_ENV !== 'production') {
       router.post('/test',

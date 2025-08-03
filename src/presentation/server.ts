@@ -67,6 +67,7 @@ export class Server {
     const { VoteRoutes } = await import("./routes/vote.routes");
     const { NotificationRoutes } = await import("./routes/notification.routes");
     const { ModerationRoutes } = await import("./routes/moderation.routes");
+    const { SSERoutes } = await import("./routes/sse.routes");
 
     // Registrar rutas de autenticación
     this.app.use("/api/auth", await AuthRoutes.getRoutes());
@@ -85,6 +86,8 @@ export class Server {
 
     // 🔥 CORRECCIÓN CRÍTICA: Registrar rutas de comentarios con prefijo específico
     this.app.use("/api/comments", await CommentRoutes.getRoutes());
+
+    this.app.use("/api/sse", await SSERoutes.getRoutes());
 
     // Registrar rutas de votos (pueden ir después ahora)
     this.app.use("/api", await VoteRoutes.getRoutes());
