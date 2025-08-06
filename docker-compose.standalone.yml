@@ -5,13 +5,11 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      # ✅ Valores por defecto seguros
       POSTGRES_USER: ${POSTGRES_USER:-foro_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambiar_este_password}
       POSTGRES_DB: ${POSTGRES_DB:-forumDB}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
-      # ✅ Datos persistentes automáticos
       - foro_postgres_data:/var/lib/postgresql/data
     ports:
       - "${DB_PORT:-5432}:5432"
@@ -44,35 +42,35 @@ services:
     networks:
       - foro_network
 
-  # ===== FORO API (TODO AUTOMÁTICO) =====
+  # ===== FORO API =====
   foro-api:
     image: alexzafra13/foro-api:latest
     restart: unless-stopped
     ports:
       - "${API_PORT:-9090}:3000"
     environment:
-      # ✅ URLs automáticas (nombres de servicios)
+      # Base de datos
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@pgbouncer:6432/${POSTGRES_DB:-forumDB}
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       
-      # ✅ Configuración automática con valores por defecto
-      - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION}
+      # Seguridad
+      - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION_123456789}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
-      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR}
-      - PORT=3000
-      - NODE_ENV=production
+      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR_123456789}
       - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
       
-      # ✅ Email (opcional - funciona sin configurar)
+      # Email - CON VALORES POR DEFECTO FUNCIONALES
       - MAILER_SERVICE=${MAILER_SERVICE:-gmail}
-      - MAILER_EMAIL=${MAILER_EMAIL:-}
-      - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-}
+      - MAILER_EMAIL=${MAILER_EMAIL:-noreply@localhost}
+      - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-dummy_password}
       
-      # ✅ URLs por defecto
+      # Servidor
+      - PORT=3000
+      - NODE_ENV=production
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:9090}
       
-      # ✅ Performance
+      # Performance
       - ENABLE_QUERY_LOGGING=false
       - CONNECTION_POOL_SIZE=30
       
@@ -89,7 +87,6 @@ services:
       - foro_network
 
 volumes:
-  # ✅ Volumen automático para datos
   foro_postgres_data:
     driver: local
 
