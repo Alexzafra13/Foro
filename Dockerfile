@@ -35,13 +35,16 @@ FROM base AS production
 # Copiar package files
 COPY package*.json ./
 
-# Instalar solo dependencias de producción + algunas necesarias para scripts
-RUN npm ci --only=production
+# ✅ CAMBIO CRÍTICO: Instalar TODAS las dependencias para que funcionen los comandos Prisma
+RUN npm ci
 
 # Copiar archivos compilados desde builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# ✅ MANTENER PRISMA CLI disponible para migraciones y seed
+# No ejecutar npm prune para conservar las herramientas necesarias
 
 # Crear usuario no-root
 RUN addgroup -g 1001 -S nodejs && \

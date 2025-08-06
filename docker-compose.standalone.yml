@@ -46,6 +46,7 @@ services:
   migrations:
     image: alexzafra13/foro-api:latest
     environment:
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       - NODE_ENV=production
     depends_on:
@@ -60,11 +61,16 @@ services:
   seed:
     image: alexzafra13/foro-api:latest
     environment:
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION_123456789}
+      - MAILER_EMAIL=${MAILER_EMAIL:-noreply@localhost}
+      - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-dummy_password}
+      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR}
     depends_on:
       - migrations
-    command: ["npm", "run", "db:seed"]
+    command: ["npm", "run", "db:seed:prod"]
     networks:
       - foro_network
     restart: "no"
@@ -80,7 +86,7 @@ services:
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
       - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION_123456789}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
-      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR_123456789}
+      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR}
       - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
       - MAILER_SERVICE=${MAILER_SERVICE:-gmail}
       - MAILER_EMAIL=${MAILER_EMAIL:-noreply@localhost}
