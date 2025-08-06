@@ -56,8 +56,14 @@ services:
     networks:
       - foro_network
     restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/migration-complete"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
-  # ===== SEED DE DATOS INICIALES =====
+  # ===== SEED DE DATOS INICIALES (ESPERA A MIGRATIONS) =====
   seed:
     image: alexzafra13/foro-api:latest
     environment:
@@ -69,7 +75,8 @@ services:
       - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-dummy_password}
       - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR}
     depends_on:
-      - migrations
+      migrations:
+        condition: service_completed_successfully
     command: ["npm", "run", "db:seed:prod"]
     networks:
       - foro_network
@@ -98,8 +105,10 @@ services:
       - ENABLE_QUERY_LOGGING=false
       - CONNECTION_POOL_SIZE=30
     depends_on:
-      - seed
-      - pgbouncer
+      seed:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 30s
