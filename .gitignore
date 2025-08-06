@@ -1,7 +1,32 @@
-node_modules/
+# ===== SECRETS Y CONFIGURACIÓN SENSIBLE =====
 .env
+.env.*
+!.env.example
+
+# ===== DATOS LOCALES Y DESARROLLO =====
+server-data/
+postgres/
+backups/
 dist/
-/postgres
-/src/generated/prisma
-.vscode/
+
+# ===== NODE.JS =====
+node_modules/
+*.log
+npm-debug.log*
 coverage/
+
+# ===== PRISMA =====
+src/generated/prisma
+
+# ===== DOCKER =====
+.docker/
+
+# ===== SISTEMA OPERATIVO =====
+.DS_Store
+Thumbs.db
+
+# ===== EDITORES =====
+.vscode/
+.idea/
+*.swp
+*.swo

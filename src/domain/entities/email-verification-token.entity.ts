@@ -1,3 +1,6 @@
+import crypto from 'crypto';
+
+
 export class EmailVerificationTokenEntity {
   constructor(
     public id: number,
@@ -56,7 +59,6 @@ export class EmailVerificationTokenEntity {
   // Métodos estáticos para generar tokens
   static generateToken(): string {
     // Genera un token único de 64 caracteres (32 bytes en hex)
-    const crypto = require('crypto');
     return crypto.randomBytes(32).toString('hex');
   }
 

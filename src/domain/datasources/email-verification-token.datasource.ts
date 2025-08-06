@@ -1,4 +1,4 @@
-import { EmailVerificationTokenEntity } from '@/domain/entities/email-verification-token.entity'; 
+import { EmailVerificationTokenEntity } from '../entities/email-verification-token.entity'; 
 
 
 export interface CreateEmailVerificationTokenDto {

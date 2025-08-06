@@ -1,0 +1,49 @@
+# ===== ARCHIVOS DE DESARROLLO (no copiar a imagen) =====
+node_modules/
+dist/
+coverage/
+
+# ===== DATOS LOCALES (no copiar a imagen) =====
+server-data/
+postgres/
+backups/
+
+# ===== CONFIGURACIÓN SENSIBLE (no copiar a imagen) =====
+.env
+.env.*
+!.env.example
+
+# ===== ARCHIVOS DE DESARROLLO =====
+*.md
+README.md
+.gitignore
+.git/
+
+# ===== TESTS Y DOCUMENTACIÓN =====
+tests/
+docs/
+*.test.js
+*.spec.js
+
+# ===== EDITORES Y HERRAMIENTAS =====
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== DOCKER COMPOSE (no necesarios en imagen) =====
+docker-compose*.yml
+Dockerfile*
+
+# ===== LOGS Y TEMPORALES =====
+*.log
+npm-debug.log*
+.npm/
+.cache/
+
+# ===== ARCHIVOS DE CI/CD =====
+.github/
+.gitlab-ci.yml
+.travis.yml
