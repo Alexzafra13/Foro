@@ -1,93 +1,95 @@
 version: '3.8'
 services:
+  # ===== BASE DE DATOS =====
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      # ✅ CONFIGURACIÓN PARA ALTO TRÁFICO
+      POSTGRES_USER: ${POSTGRES_USER:-foro_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambiar_este_password}
+      POSTGRES_DB: ${POSTGRES_DB:-forumDB}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
-      - ./postgres:/var/lib/postgresql/data
-      # ✅ CONFIGURACIÓN PERSONALIZADA DE POSTGRES
-      - ./postgres-config/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./postgres-config/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - foro_postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foro_user} -d ${POSTGRES_DB:-forumDB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # ✅ AGREGAR CONFIGURACIÓN PERSONALIZADA
-    command: >
-      postgres 
-      -c config_file=/etc/postgresql/postgresql.conf
-      -c hba_file=/etc/postgresql/pg_hba.conf
+    networks:
+      - foro_network
 
-  # ✅ PGBOUNCER - ADMINISTRADOR DE CONEXIONES
+  # ===== PGBOUNCER =====
   pgbouncer:
     image: pgbouncer/pgbouncer:latest
     restart: unless-stopped
     environment:
-      # Configuración de conexión a PostgreSQL
       DATABASES_HOST: postgres
       DATABASES_PORT: 5432
-      DATABASES_USER: ${POSTGRES_USER}
-      DATABASES_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASES_DBNAME: ${POSTGRES_DB}
-      
-      # ✅ CONFIGURACIÓN OPTIMIZADA PARA FORO
-      POOL_MODE: transaction              # Modo más eficiente para APIs REST
-      MAX_CLIENT_CONN: 1000              # Máximo de clientes simultáneos
-      DEFAULT_POOL_SIZE: 30              # Conexiones activas a PostgreSQL
-      MIN_POOL_SIZE: 10                  # Mínimo de conexiones
-      RESERVE_POOL_SIZE: 10              # Conexiones de reserva
-      MAX_DB_CONNECTIONS: 50             # Máximo absoluto a PostgreSQL
-      
-      # ✅ TIMEOUTS OPTIMIZADOS
-      SERVER_IDLE_TIMEOUT: 600           # 10 minutos
-      CLIENT_IDLE_TIMEOUT: 300           # 5 minutos
-      SERVER_CONNECT_TIMEOUT: 15         # 15 segundos
-      QUERY_TIMEOUT: 0                   # Sin timeout de query
-      
-      # ✅ CONFIGURACIÓN DE SEGURIDAD
+      DATABASES_USER: ${POSTGRES_USER:-foro_user}
+      DATABASES_PASSWORD: ${POSTGRES_PASSWORD:-cambiar_este_password}
+      DATABASES_DBNAME: ${POSTGRES_DB:-forumDB}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 30
+      MIN_POOL_SIZE: 10
       AUTH_TYPE: scram-sha-256
-      
-      # ✅ CONFIGURACIÓN DE LOGS
-      LOG_CONNECTIONS: 1
-      LOG_DISCONNECTIONS: 1
-      VERBOSE: 1
-      
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - foro_network
+
+  # ===== FORO API =====
+  foro-api:
+    image: alexzafra13/foro-api:latest
+    restart: unless-stopped
     ports:
-      - "6432:6432"  # ← PUERTO DE PGBOUNCER (diferente a postgres)
+      - "${API_PORT:-9090}:3000"
+    environment:
+      # Base de datos
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@pgbouncer:6432/${POSTGRES_DB:-forumDB}
+      - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
+      
+      # Seguridad
+      - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION_123456789}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR_123456789}
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
+      
+      # Email - CON VALORES POR DEFECTO FUNCIONALES
+      - MAILER_SERVICE=${MAILER_SERVICE:-gmail}
+      - MAILER_EMAIL=${MAILER_EMAIL:-noreply@localhost}
+      - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-dummy_password}
+      
+      # Servidor
+      - PORT=3000
+      - NODE_ENV=production
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:9090}
+      
+      # Performance
+      - ENABLE_QUERY_LOGGING=false
+      - CONNECTION_POOL_SIZE=30
+      
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "psql postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:6432/${POSTGRES_DB} -c 'SELECT 1'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - foro_network
 
-  pgadmin:
-    image: dpage/pgadmin4
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "8080:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
+volumes:
+  foro_postgres_data:
+    driver: local
 
-# ✅ CONFIGURACIÓN DE RED OPTIMIZADA
 networks:
-  default:
+  foro_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16

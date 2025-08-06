@@ -1,30 +1,47 @@
-FROM node:22-alpine
+FROM node:22-alpine AS base
 
 # Instalar dependencias del sistema
 RUN apk add --no-cache openssl libc6-compat curl wget
 
 WORKDIR /app
 
+# ===== STAGE 1: BUILD =====
+FROM base AS builder
+
 # Copiar archivos de configuración
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma/ ./prisma/
 
-# Instalar TODAS las dependencias (incluyendo devDependencies para build)
+# Instalar TODAS las dependencias (necesarias para build y seed)
 RUN npm ci
 
 # Generar Prisma client
 RUN npx prisma generate
 
-# Copiar código fuente
+# Copiar código fuente Y archivos de seed
 COPY src/ ./src/
 COPY types/ ./types/
 
-# 🔧 COMPILAR CON tsc-alias (transforma los paths @/ a relativos)
+# 🔧 COMPILAR TODO (incluyendo prisma/seed.ts)
 RUN npm run build
 
-# Limpiar devDependencies después del build (opcional para reducir tamaño)
-RUN npm prune --production
+# 🌱 COMPILAR SEED ESPECÍFICAMENTE (backup por si tsconfig no lo incluye)
+RUN npx tsc prisma/seed.ts --outDir dist/ --moduleResolution node --esModuleInterop --target ES2020
+
+# ===== STAGE 2: PRODUCTION =====
+FROM base AS production
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar solo dependencias de producción + algunas necesarias para scripts
+RUN npm ci --only=production
+
+# Copiar archivos compilados desde builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Crear usuario no-root
 RUN addgroup -g 1001 -S nodejs && \
@@ -39,5 +56,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# 🔧 COMANDO SIMPLE: ya no necesita tsconfig-paths porque tsc-alias transformó los paths
+# Comando principal
 CMD ["npm", "start"]

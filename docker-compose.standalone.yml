@@ -42,6 +42,33 @@ services:
     networks:
       - foro_network
 
+  # ===== MIGRACIONES AUTOMÁTICAS =====
+  migrations:
+    image: alexzafra13/foro-api:latest
+    environment:
+      - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npx", "prisma", "migrate", "deploy"]
+    networks:
+      - foro_network
+    restart: "no"
+
+  # ===== SEED DE DATOS INICIALES =====
+  seed:
+    image: alexzafra13/foro-api:latest
+    environment:
+      - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
+      - NODE_ENV=development
+    depends_on:
+      - migrations
+    command: ["npm", "run", "db:seed"]
+    networks:
+      - foro_network
+    restart: "no"
+
   # ===== FORO API =====
   foro-api:
     image: alexzafra13/foro-api:latest
@@ -49,34 +76,24 @@ services:
     ports:
       - "${API_PORT:-9090}:3000"
     environment:
-      # Base de datos
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@pgbouncer:6432/${POSTGRES_DB:-forumDB}
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER:-foro_user}:${POSTGRES_PASSWORD:-cambiar_este_password}@postgres:5432/${POSTGRES_DB:-forumDB}
-      
-      # Seguridad
       - JWT_SECRET=${JWT_SECRET:-jwt_secret_CAMBIAR_EN_PRODUCCION_123456789}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
       - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET:-email_secret_CAMBIAR_123456789}
       - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
-      
-      # Email - CON VALORES POR DEFECTO FUNCIONALES
       - MAILER_SERVICE=${MAILER_SERVICE:-gmail}
       - MAILER_EMAIL=${MAILER_EMAIL:-noreply@localhost}
       - MAILER_SECRET_KEY=${MAILER_SECRET_KEY:-dummy_password}
-      
-      # Servidor
       - PORT=3000
       - NODE_ENV=production
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:9090}
-      
-      # Performance
       - ENABLE_QUERY_LOGGING=false
       - CONNECTION_POOL_SIZE=30
-      
     depends_on:
-      postgres:
-        condition: service_healthy
+      - seed
+      - pgbouncer
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 30s
