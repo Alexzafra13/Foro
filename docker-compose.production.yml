@@ -1,6 +1,5 @@
 version: '3.8'
 services:
-  # ===== BASE DE DATOS =====
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -10,13 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
-      # 💾 DATOS PERSISTENTES EN DIRECTORIO LOCAL (fácil backup)
-      - ./server-data/postgres:/var/lib/postgresql/data
-      - ./server-data/backups:/backups
-      - ./postgres-config/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./postgres-config/pg_hba.conf:/etc/postgresql/pg_hba.conf
-    ports:
-      - "5432:5432"  # 🔌 PostgreSQL accesible directamente
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -25,7 +18,6 @@ services:
     networks:
       - forum_network
 
-  # ===== PGBOUNCER =====
   pgbouncer:
     image: pgbouncer/pgbouncer:latest
     restart: unless-stopped
@@ -40,15 +32,13 @@ services:
       DEFAULT_POOL_SIZE: 30
       MIN_POOL_SIZE: 10
       AUTH_TYPE: scram-sha-256
-    ports:
-      - "6432:6432"  # 🔌 PgBouncer para conexiones optimizadas
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - forum_network
 
-  # ===== MIGRACIONES DE PRISMA =====
+  # 🎯 MIGRACIONES AUTOMÁTICAS
   migrations:
     build: 
       context: .
@@ -64,7 +54,7 @@ services:
       - forum_network
     restart: "no"
 
-  # ===== SEEDING DE DATOS =====
+  # 🎯 SEED AUTOMÁTICO
   seed:
     build: 
       context: .
@@ -72,52 +62,47 @@ services:
     environment:
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET}
+      - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET}
+      - MAILER_EMAIL=${MAILER_EMAIL}
+      - MAILER_SECRET_KEY=${MAILER_SECRET_KEY}
     depends_on:
-      - migrations
-    command: ["npm", "run", "db:seed"]
+      migrations:
+        condition: service_completed_successfully
+    command: ["npm", "run", "db:seed"]  # ← Usa versión TypeScript
     networks:
       - forum_network
     restart: "no"
 
-  # ===== BACKEND API =====
+  # 🎯 BACKEND API
   backend:
     build: 
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "9090:3000"  # 🚀 API en puerto 9090 (externo)
+      - "9090:3000"
     environment:
-      # Base de datos
       - POSTGRES_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
       - POSTGRES_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      
-      # JWT y seguridad
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - EMAIL_VERIFICATION_SECRET=${EMAIL_VERIFICATION_SECRET}
-      
-      # Configuración del servidor
       - PORT=3000
       - NODE_ENV=production
       - BCRYPT_ROUNDS=${BCRYPT_ROUNDS}
-      
-      # Email
       - MAILER_SERVICE=${MAILER_SERVICE}
       - MAILER_EMAIL=${MAILER_EMAIL}
       - MAILER_SECRET_KEY=${MAILER_SECRET_KEY}
-      
-      # Frontend y CORS (CAMBIAR POR IP DE TU SERVIDOR)
       - FRONTEND_URL=${FRONTEND_URL}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
-      
-      # Performance
       - ENABLE_QUERY_LOGGING=false
       - CONNECTION_POOL_SIZE=30
-      
     depends_on:
-      - seed
-      - pgbouncer
+      seed:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 30s
@@ -128,7 +113,6 @@ services:
       - forum_network
 
 volumes:
-  # 📁 DIRECTORIO LOCAL PARA FÁCIL ACCESO Y BACKUP
   postgres_data:
     driver: local
 
