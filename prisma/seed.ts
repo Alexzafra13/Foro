@@ -1,18 +1,29 @@
-// prisma/seed.ts - CORREGIDO CON EMAIL VERIFICATION
+// prisma/seed.ts - VERSIÓN INTELIGENTE (ejecuta siempre que no haya datos)
+
 import { PrismaClient } from '@prisma/client';
 import { genSaltSync, hashSync } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seeding con categorías...');
+  console.log('🌱 Iniciando seed inteligente...');
 
   try {
     // =========================================
-    // 1. ROLES DEL SISTEMA
+    // 🎯 VERIFICAR SI YA HAY DATOS
     // =========================================
     
-    console.log('📝 Insertando roles...');
+    const existingUsers = await prisma.user.count();
+    const existingRoles = await prisma.role.count();
+    const existingCategories = await prisma.category.count();
+    
+    console.log(`📊 Estado actual: ${existingRoles} roles, ${existingCategories} categorías, ${existingUsers} usuarios`);
+    
+    // =========================================
+    // 1. ROLES DEL SISTEMA (siempre verificar)
+    // =========================================
+    
+    console.log('📝 Verificando roles...');
     const rolesData = ['admin', 'moderator', 'user'];
 
     for (const roleName of rolesData) {
@@ -22,14 +33,13 @@ async function main() {
         create: { name: roleName },
       });
     }
-
-    console.log('✅ Roles insertados correctamente');
+    console.log('✅ Roles verificados');
 
     // =========================================
-    // 2. CATEGORÍAS DE CANALES
+    // 2. CATEGORÍAS (siempre verificar)
     // =========================================
     
-    console.log('📁 Creando categorías...');
+    console.log('📁 Verificando categorías...');
     
     const categoriesData = [
       { 
@@ -101,406 +111,188 @@ async function main() {
         },
       });
     }
-
-    console.log('✅ Categorías creadas correctamente');
+    console.log('✅ Categorías verificadas');
 
     // =========================================
-    // 3. OBTENER IDs DE CATEGORÍAS
+    // 3. CANALES (solo si no existen)
     // =========================================
     
-    const generalCategory = await prisma.category.findUnique({ where: { name: 'General' } });
-    const techCategory = await prisma.category.findUnique({ where: { name: 'Tecnología' } });
-    const entertainmentCategory = await prisma.category.findUnique({ where: { name: 'Entretenimiento' } });
-    const gamingCategory = await prisma.category.findUnique({ where: { name: 'Gaming' } });
-    const creativeCategory = await prisma.category.findUnique({ where: { name: 'Creatividad' } });
-    const variosCategory = await prisma.category.findUnique({ where: { name: 'Varios' } });
-    const staffCategory = await prisma.category.findUnique({ where: { name: 'Staff' } });
+    const existingChannels = await prisma.channel.count();
+    
+    if (existingChannels === 0) {
+      console.log('📝 Creando canales (primera vez)...');
+      
+      // Obtener IDs de categorías
+      const categories = await prisma.category.findMany();
+      const categoryMap = Object.fromEntries(categories.map(cat => [cat.name, cat.id]));
+      
+      const channelsData = [
+        // 🏠 GENERAL
+        { name: 'general', category: 'General', description: 'Discusiones generales y presentaciones', icon: '💬', position: 1 },
+        { name: 'anuncios', category: 'General', description: 'Anuncios importantes del foro', icon: '📢', position: 2 },
+        { name: 'sugerencias', category: 'General', description: 'Sugerencias para mejorar el foro', icon: '💡', position: 3 },
+        
+        // 💻 TECNOLOGÍA
+        { name: 'programacion', category: 'Tecnología', description: 'Desarrollo, frameworks y lenguajes', icon: '👨‍💻', position: 1 },
+        { name: 'hardware', category: 'Tecnología', description: 'PCs, componentes y builds', icon: '🔧', position: 2 },
+        { name: 'linux', category: 'Tecnología', description: 'Distribuciones y open source', icon: '🐧', position: 3 },
+        
+        // 🎬 ENTRETENIMIENTO
+        { name: 'peliculas-series', category: 'Entretenimiento', description: 'Recomendaciones y reseñas', icon: '📺', position: 1 },
+        { name: 'enlaces-media', category: 'Entretenimiento', description: 'Enlaces a contenido multimedia', icon: '🔗', position: 2 },
+        { name: 'libros', category: 'Entretenimiento', description: 'Literatura y recomendaciones', icon: '📚', position: 3 },
+        
+        // 🎮 GAMING
+        { name: 'juegos-pc', category: 'Gaming', description: 'Steam, mods y gaming en PC', icon: '🖥️', position: 1 },
+        { name: 'juegos-console', category: 'Gaming', description: 'PlayStation, Xbox, Nintendo', icon: '🎮', position: 2 },
+        { name: 'juegos-mobile', category: 'Gaming', description: 'Gaming móvil y casual', icon: '📱', position: 3 },
+        
+        // 🎨 CREATIVIDAD
+        { name: 'arte-diseño', category: 'Creatividad', description: 'Arte digital y diseño gráfico', icon: '🎨', position: 1 },
+        { name: 'musica', category: 'Creatividad', description: 'Géneros, artistas y recomendaciones', icon: '🎵', position: 2 },
+        
+        // 🌍 VARIOS
+        { name: 'deportes', category: 'Varios', description: 'Fútbol, baloncesto, esports', icon: '⚽', position: 1 },
+        { name: 'viajes', category: 'Varios', description: 'Destinos y experiencias', icon: '✈️', position: 2 },
+        { name: 'cocina', category: 'Varios', description: 'Recetas y gastronomía', icon: '👨‍🍳', position: 3 },
+        { name: 'off-topic', category: 'Varios', description: 'Conversaciones casuales', icon: '💭', position: 4 },
+        
+        // 🔒 STAFF
+        { name: 'moderadores', category: 'Staff', description: 'Coordinación del equipo', icon: '👮', position: 1, isPrivate: true },
+        { name: 'admin', category: 'Staff', description: 'Gestión administrativa', icon: '⚙️', position: 2, isPrivate: true },
+      ];
 
-    if (!generalCategory || !techCategory || !entertainmentCategory || 
-        !gamingCategory || !creativeCategory || !variosCategory || !staffCategory) {
-      throw new Error('Error: No se pudieron crear todas las categorías');
+      for (const channelData of channelsData) {
+        await prisma.channel.create({
+          data: {
+            name: channelData.name,
+            categoryId: categoryMap[channelData.category],
+            description: channelData.description,
+            icon: channelData.icon,
+            position: channelData.position,
+            isPrivate: channelData.isPrivate || false,
+            isVisible: true
+          }
+        });
+      }
+      
+      console.log('✅ Canales creados');
+    } else {
+      console.log(`ℹ️  Ya existen ${existingChannels} canales, omitiendo creación`);
     }
 
     // =========================================
-    // 4. CANALES ORGANIZADOS POR CATEGORÍA
+    // 4. USUARIOS ADMIN (solo si no hay usuarios)
     // =========================================
     
-    console.log('📝 Creando canales organizados...');
-
-    const channelsData = [
-      // 🏠 GENERAL
-      { 
-        name: 'general', 
-        categoryId: generalCategory.id,
-        description: 'Discusiones generales y presentaciones', 
-        icon: '💬',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'anuncios', 
-        categoryId: generalCategory.id,
-        description: 'Anuncios importantes del foro', 
-        icon: '📢',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'sugerencias', 
-        categoryId: generalCategory.id,
-        description: 'Sugerencias para mejorar el foro', 
-        icon: '💡',
-        position: 3,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 💻 TECNOLOGÍA
-      { 
-        name: 'programacion', 
-        categoryId: techCategory.id,
-        description: 'Desarrollo, frameworks y lenguajes', 
-        icon: '👨‍💻',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'hardware', 
-        categoryId: techCategory.id,
-        description: 'PCs, componentes y builds', 
-        icon: '🔧',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'linux', 
-        categoryId: techCategory.id,
-        description: 'Distribuciones y open source', 
-        icon: '🐧',
-        position: 3,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 🎬 ENTRETENIMIENTO
-      { 
-        name: 'peliculas-series', 
-        categoryId: entertainmentCategory.id,
-        description: 'Recomendaciones y reseñas', 
-        icon: '📺',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'enlaces-media', 
-        categoryId: entertainmentCategory.id,
-        description: 'Enlaces a contenido multimedia', 
-        icon: '🔗',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'libros', 
-        categoryId: entertainmentCategory.id,
-        description: 'Literatura y recomendaciones', 
-        icon: '📚',
-        position: 3,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 🎮 GAMING
-      { 
-        name: 'juegos-pc', 
-        categoryId: gamingCategory.id,
-        description: 'Steam, mods y gaming en PC', 
-        icon: '🖥️',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'juegos-console', 
-        categoryId: gamingCategory.id,
-        description: 'PlayStation, Xbox, Nintendo', 
-        icon: '🎮',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'juegos-mobile', 
-        categoryId: gamingCategory.id,
-        description: 'Gaming móvil y casual', 
-        icon: '📱',
-        position: 3,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 🎨 CREATIVIDAD
-      { 
-        name: 'arte-diseño', 
-        categoryId: creativeCategory.id,
-        description: 'Arte digital y diseño gráfico', 
-        icon: '🎨',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'musica', 
-        categoryId: creativeCategory.id,
-        description: 'Géneros, artistas y recomendaciones', 
-        icon: '🎵',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 🌍 VARIOS
-      { 
-        name: 'deportes', 
-        categoryId: variosCategory.id,
-        description: 'Fútbol, baloncesto, esports', 
-        icon: '⚽',
-        position: 1,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'viajes', 
-        categoryId: variosCategory.id,
-        description: 'Destinos y experiencias', 
-        icon: '✈️',
-        position: 2,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'cocina', 
-        categoryId: variosCategory.id,
-        description: 'Recetas y gastronomía', 
-        icon: '👨‍🍳',
-        position: 3,
-        isPrivate: false,
-        isVisible: true
-      },
-      { 
-        name: 'off-topic', 
-        categoryId: variosCategory.id,
-        description: 'Conversaciones casuales', 
-        icon: '💭',
-        position: 4,
-        isPrivate: false,
-        isVisible: true
-      },
-
-      // 🔒 STAFF
-      { 
-        name: 'moderadores', 
-        categoryId: staffCategory.id,
-        description: 'Coordinación del equipo', 
-        icon: '👮',
-        position: 1,
-        isPrivate: true,
-        isVisible: true
-      },
-      { 
-        name: 'admin', 
-        categoryId: staffCategory.id,
-        description: 'Gestión administrativa', 
-        icon: '⚙️',
-        position: 2,
-        isPrivate: true,
-        isVisible: true
-      },
-    ];
-
-    for (const channelData of channelsData) {
-      await prisma.channel.upsert({
-        where: { name: channelData.name },
-        update: { 
-          categoryId: channelData.categoryId,
-          description: channelData.description,
-          icon: channelData.icon,
-          position: channelData.position,
-          isPrivate: channelData.isPrivate,
-          isVisible: channelData.isVisible
-        },
-        create: {
-          name: channelData.name,
-          categoryId: channelData.categoryId,
-          description: channelData.description,
-          icon: channelData.icon,
-          position: channelData.position,
-          isPrivate: channelData.isPrivate,
-          isVisible: channelData.isVisible
-        },
-      });
-    }
-
-    console.log('✅ Canales organizados creados correctamente');
-
-    // =========================================
-    // 5. USUARIOS DE DESARROLLO CON EMAIL VERIFICATION
-    // =========================================
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('👤 Creando usuarios de desarrollo...');
+    if (existingUsers === 0) {
+      console.log('👤 Creando usuarios iniciales...');
       
       const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
       const moderatorRole = await prisma.role.findUnique({ where: { name: 'moderator' } });
       const userRole = await prisma.role.findUnique({ where: { name: 'user' } });
       
       if (adminRole && moderatorRole && userRole) {
-        // Generar hash correcto para admin123
         const salt = genSaltSync(12);
-        const correctPasswordHash = hashSync('admin123', salt);
+        const adminPasswordHash = hashSync('admin123', salt);
         const verificationDate = new Date();
         
-        console.log('🔐 Generando hash correcto para contraseñas...');
-        
-        // ✅ Usuario admin - VERIFICADO
-        await prisma.user.upsert({
-          where: { email: 'admin@foro.local' },
-          update: {
-            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
-            emailVerifiedAt: verificationDate,
-          },
-          create: {
+        // ✅ Usuario admin
+        await prisma.user.create({
+          data: {
             username: 'admin',
             email: 'admin@foro.local',
-            passwordHash: correctPasswordHash,
+            passwordHash: adminPasswordHash,
             roleId: adminRole.id,
             reputation: 1000,
-            isEmailVerified: true,        // ✅ Admin verificado
-            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
-          },
+            isEmailVerified: true,
+            emailVerifiedAt: verificationDate,
+          }
         });
 
-        // ✅ Usuario moderador - VERIFICADO
-        await prisma.user.upsert({
-          where: { email: 'mod@foro.local' },
-          update: {
-            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
-            emailVerifiedAt: verificationDate,
-          },
-          create: {
+        // ✅ Usuario moderador
+        await prisma.user.create({
+          data: {
             username: 'moderador',
             email: 'mod@foro.local',
-            passwordHash: correctPasswordHash,
+            passwordHash: adminPasswordHash,
             roleId: moderatorRole.id,
             reputation: 500,
-            isEmailVerified: true,        // ✅ Moderador verificado
-            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
-          },
+            isEmailVerified: true,
+            emailVerifiedAt: verificationDate,
+          }
         });
 
-        // ✅ Usuario normal - AHORA TAMBIÉN VERIFICADO EN DEVELOPMENT
-        await prisma.user.upsert({
-          where: { email: 'user@foro.local' },
-          update: {
-            isEmailVerified: true,        // ✅ ACTUALIZAR usuarios existentes
-            emailVerifiedAt: verificationDate,
-          },
-          create: {
-            username: 'usuario_prueba',
+        // ✅ Usuario normal
+        await prisma.user.create({
+          data: {
+            username: 'usuario_demo',
             email: 'user@foro.local',
-            passwordHash: correctPasswordHash,
+            passwordHash: adminPasswordHash,
             roleId: userRole.id,
             reputation: 100,
-            isEmailVerified: true,        // ✅ Usuario normal TAMBIÉN verificado
-            emailVerifiedAt: verificationDate,  // ✅ Fecha de verificación
-          },
+            isEmailVerified: true,
+            emailVerifiedAt: verificationDate,
+          }
         });
 
-        console.log('✅ Usuarios de desarrollo creados:');
-        console.log('   • admin@foro.local (password: admin123) - ✅ VERIFICADO');
-        console.log('   • mod@foro.local (password: admin123) - ✅ VERIFICADO');
-        console.log('   • user@foro.local (password: admin123) - ✅ VERIFICADO');
+        console.log('✅ Usuarios iniciales creados:');
+        console.log('   • admin@foro.local (password: admin123) - Admin');
+        console.log('   • mod@foro.local (password: admin123) - Moderador');
+        console.log('   • user@foro.local (password: admin123) - Usuario');
       }
+    } else {
+      console.log(`ℹ️  Ya existen ${existingUsers} usuarios, omitiendo creación`);
     }
 
     // =========================================
-    // 6. POSTS DE BIENVENIDA (OPCIONAL)
+    // 5. POSTS DE BIENVENIDA (solo si no hay posts)
     // =========================================
     
-    if (process.env.NODE_ENV === 'development') {
+    const existingPosts = await prisma.post.count();
+    
+    if (existingPosts === 0) {
       console.log('📝 Creando posts de bienvenida...');
       
-      const generalChannel = await prisma.channel.findFirst({ 
-        where: { name: 'general' } 
-      });
-      const anunciosChannel = await prisma.channel.findFirst({ 
-        where: { name: 'anuncios' } 
-      });
-      const adminUser = await prisma.user.findFirst({ 
-        where: { email: 'admin@foro.local' } 
-      });
+      const generalChannel = await prisma.channel.findFirst({ where: { name: 'general' } });
+      const anunciosChannel = await prisma.channel.findFirst({ where: { name: 'anuncios' } });
+      const adminUser = await prisma.user.findFirst({ where: { email: 'admin@foro.local' } });
       
       if (generalChannel && anunciosChannel && adminUser) {
-        // Post de bienvenida en anuncios
+        // Post de bienvenida
         await prisma.post.create({
           data: {
             channelId: anunciosChannel.id,
             authorId: adminUser.id,
             title: '¡Bienvenidos al Foro!',
-            content: `¡Hola y bienvenidos a nuestro foro organizado!
+            content: `¡Hola y bienvenidos a nuestro foro!
 
 **📋 Normas básicas:**
-• Mantén el respeto hacia otros usuarios
-• Publica en el canal apropiado según la categoría
+• Respeta a otros usuarios
+• Publica en el canal apropiado
 • No spam ni contenido ofensivo
-• ¡Diviértete y comparte conocimientos!
+• ¡Diviértete y comparte!
 
-**📁 Nuestras categorías:**
-• 🏠 **General**: Presentaciones y discusiones generales
-• 💻 **Tecnología**: Programación, hardware, Linux
-• 🎬 **Entretenimiento**: Películas, series, libros, enlaces
-• 🎮 **Gaming**: Juegos de PC, consola y móvil
-• 🎨 **Creatividad**: Arte, música y expresión
-• 🌍 **Varios**: Deportes, viajes, cocina y más
-
-📧 **Importante**: Recuerda verificar tu email para acceder a todas las funciones del foro.
+**📁 Categorías disponibles:**
+• 🏠 General • 💻 Tecnología • 🎬 Entretenimiento
+• 🎮 Gaming • 🎨 Creatividad • 🌍 Varios • 🔒 Staff
 
 ¡Esperamos que disfrutes tu estancia aquí!`,
             isPinned: true,
           },
         });
 
-        // Post en general
-        await prisma.post.create({
-          data: {
-            channelId: generalChannel.id,
-            authorId: adminUser.id,
-            title: 'Preséntate aquí',
-            content: `¡Nuevos usuarios! Este es el lugar perfecto para presentarse y conocer a la comunidad. 
-
-Cuéntanos un poco sobre ti, tus intereses y qué te trae por aquí.
-
-📧 **Nota**: Si acabas de registrarte, revisa tu email para verificar tu cuenta.
-
-¡Bienvenidos!`,
-            isPinned: true,
-          },
-        });
-
         console.log('✅ Posts de bienvenida creados');
       }
+    } else {
+      console.log(`ℹ️  Ya existen ${existingPosts} posts, omitiendo posts de bienvenida`);
     }
 
     // =========================================
     // 7. RESUMEN FINAL
     // =========================================
     
-    const stats = {
+    const finalStats = {
       roles: await prisma.role.count(),
       categories: await prisma.category.count(),
       channels: await prisma.channel.count(),
@@ -508,28 +300,23 @@ Cuéntanos un poco sobre ti, tus intereses y qué te trae por aquí.
       posts: await prisma.post.count(),
     };
 
-    console.log('\n🎉 ¡FORO ORGANIZADO CREADO EXITOSAMENTE!');
-    console.log('📊 ESTADÍSTICAS:');
-    console.log(`   🔐 ${stats.roles} roles`);
-    console.log(`   📁 ${stats.categories} categorías`);
-    console.log(`   📺 ${stats.channels} canales`);
-    console.log(`   👥 ${stats.users} usuarios`);
-    console.log(`   📝 ${stats.posts} posts`);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('\n🔑 ACCESOS DE DESARROLLO:');
-      console.log('   Admin: admin@foro.local / admin123 (✅ Verificado)');
-      console.log('   Mod:   mod@foro.local / admin123 (✅ Verificado)');  
-      console.log('   User:  user@foro.local / admin123 (❌ No verificado)');
-      console.log('\n📧 EMAIL VERIFICATION:');
-      console.log('   • Admin y Moderador están pre-verificados');
-      console.log('   • Usuario normal necesita verificación');
-      console.log('   • Nuevos registros recibirán email de verificación');
-      console.log('\n💡 Tip: Usa "npx prisma studio" para ver los datos');
+    console.log('\n🎉 SEED INTELIGENTE COMPLETADO');
+    console.log('📊 ESTADÍSTICAS FINALES:');
+    console.log(`   🔐 ${finalStats.roles} roles`);
+    console.log(`   📁 ${finalStats.categories} categorías`);
+    console.log(`   📺 ${finalStats.channels} canales`);
+    console.log(`   👥 ${finalStats.users} usuarios`);
+    console.log(`   📝 ${finalStats.posts} posts`);
+
+    if (finalStats.users > 0) {
+      console.log('\n🔑 USUARIOS DISPONIBLES:');
+      console.log('   Admin: admin@foro.local / admin123');
+      console.log('   Mod:   mod@foro.local / admin123');
+      console.log('   User:  user@foro.local / admin123');
     }
 
   } catch (error) {
-    console.error('❌ Error durante el seeding:', error);
+    console.error('❌ Error durante el seed:', error);
     throw error;
   }
 }
@@ -541,5 +328,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-    console.log('🔌 Conexión a base de datos cerrada');
+    console.log('🔌 Desconectado de la base de datos');
   });
