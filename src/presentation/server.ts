@@ -1,6 +1,6 @@
-// src/presentation/server.ts
 import express, { Application } from "express";
-import cors from "cors";
+import { envs } from "../config/envs";
+import { CorsMiddleware } from "./middlewares/cors.middleware"; // 🆕 IMPORTAR
 
 export class Server {
   private app: Application;
@@ -13,28 +13,17 @@ export class Server {
   }
 
   private middlewares() {
-    this.app.use(cors({
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'http://127.0.0.1:5173',
-      ],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: [
-        'Content-Type', 
-        'Authorization', 
-        'X-Requested-With',
-        'Accept',
-        'Origin'
-      ]
-    }));
+    // 🆕 CORS DINÁMICO USANDO MIDDLEWARE SEPARADO
+    this.app.use(CorsMiddleware.dynamicCors);
+    
+    // 📊 LOG DE CONFIGURACIÓN AL INICIO
+    CorsMiddleware.logConfiguration();
 
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
     // Request logging solo en desarrollo
-    if (process.env.NODE_ENV === 'development') {
+    if (envs.NODE_ENV === 'development') {
       this.app.use((req, res, next) => {
         console.log(`${req.method} ${req.path}`);
         next();
@@ -43,17 +32,36 @@ export class Server {
   }
 
   private async routes() {
-    // Health check
+    // Health check MEJORADO
     this.app.get("/health", (req, res) => {
       res.json({
         status: "OK",
         timestamp: new Date().toISOString(),
         service: "Forum API",
-        version: "1.0.0"
+        version: "1.0.0",
+        // 🆕 INFORMACIÓN DE CONFIGURACIÓN
+        config: {
+          frontend_url: envs.FRONTEND_URL,
+          allowed_origins_count: envs.ALLOWED_ORIGINS.length,
+          environment: envs.NODE_ENV,
+          cors_enabled: true
+        }
       });
     });
 
-    // Cargar todas las rutas
+    // 🆕 ENDPOINT PARA DEBUG DE CORS (solo desarrollo)
+    if (envs.NODE_ENV === 'development') {
+      this.app.get("/debug/cors", (req, res) => {
+        res.json({
+          frontend_url: envs.FRONTEND_URL,
+          allowed_origins: envs.ALLOWED_ORIGINS,
+          request_origin: req.get('origin') || 'No origin header',
+          cors_status: envs.ALLOWED_ORIGINS.includes(req.get('origin') || '') ? 'ALLOWED' : 'BLOCKED'
+        });
+      });
+    }
+
+    // Cargar todas las rutas (TU CÓDIGO ORIGINAL)
     const { AuthRoutes } = await import("./routes/auth.routes");
     const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
     const { PasswordResetRoutes } = await import("./routes/password-reset.routes");
@@ -78,18 +86,18 @@ export class Server {
     this.app.use("/api/users", await UserRoutes.getRoutes());
     this.app.use("/api/users", await ProfileRoutes.getRoutes());
 
-     // Registrar rutas de notificaciones ✅ NUEVO
+     // Registrar rutas de notificaciones
     this.app.use("/api/notifications", await NotificationRoutes.getRoutes());
 
-    // Registrar rutas de moderación ✅ NUEVO
+    // Registrar rutas de moderación
     this.app.use("/api/moderation", await ModerationRoutes.getRoutes());
 
-    // 🔥 CORRECCIÓN CRÍTICA: Registrar rutas de comentarios con prefijo específico
+    // Registrar rutas de comentarios
     this.app.use("/api/comments", await CommentRoutes.getRoutes());
 
     this.app.use("/api/sse", await SSERoutes.getRoutes());
 
-    // Registrar rutas de votos (pueden ir después ahora)
+    // Registrar rutas de votos
     this.app.use("/api", await VoteRoutes.getRoutes());
 
     // Registrar rutas de contenido
@@ -120,9 +128,13 @@ export class Server {
         console.log(`🚀 Forum API running on port ${this.port}`);
         console.log(`📡 Health check: http://localhost:${this.port}/health`);
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🌐 CORS enabled for frontend: http://localhost:5173`);
+        // 🆕 LOGS MEJORADOS CON AUTO-DETECCIÓN
+        console.log(`🌐 Frontend URL detectada: ${envs.FRONTEND_URL}`);
+        console.log(`🌍 CORS configurado para ${envs.ALLOWED_ORIGINS.length} orígenes`);
+        
+        if (envs.NODE_ENV === 'development') {
           console.log(`\n🎯 Ready for development!`);
+          console.log(`🔧 Debug CORS: http://localhost:${this.port}/debug/cors`);
           console.log(`\n📚 Available endpoints:`);
           console.log(`   Auth: /api/auth/*`);
           console.log(`   Users: /api/users/*`);
