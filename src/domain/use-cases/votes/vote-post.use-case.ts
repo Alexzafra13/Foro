@@ -1,6 +1,8 @@
+// src/domain/use-cases/votes/vote-post.use-case.ts - CORREGIDO
 import { VoteRepository } from '@/domain/repositories/vote.repository';
-import { PostRepository } from '@/domain/repositories/post.repository'; 
+import { PostRepository } from '@/domain/repositories/post.repository';
 import { UserRepository } from '@/domain/repositories/user.repository';
+import { NotificationRepository } from '@/domain/repositories/notification.repository';
 import { PostErrors, UserErrors } from '@/shared';
 
 export interface VotePostRequestDto {
@@ -22,7 +24,8 @@ export class VotePost {
   constructor(
     private readonly voteRepository: VoteRepository,
     private readonly postRepository: PostRepository,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly notificationRepository?: NotificationRepository // ✅ AGREGAR OPCIONAL
   ) {}
 
   async execute(dto: VotePostRequestDto): Promise<VotePostResponseDto> {
@@ -74,9 +77,37 @@ export class VotePost {
 
     // Calcular nuevo score y actualizar reputación del autor
     const voteScore = await this.voteRepository.getPostVoteScore(postId);
-    
+   
     if (post.authorId) {
       await this.updateAuthorReputation(post.authorId, action, voteType, existingVote?.voteType);
+    }
+
+    // ✅ CORREGIDO: Validar que authorId no sea null/undefined
+    if (this.notificationRepository && 
+        post.authorId && // ✅ Verificar que authorId existe
+        post.authorId !== userId && 
+        action === 'created' && 
+        voteType === 1) {
+      
+      try {
+        const voter = await this.userRepository.findById(userId);
+        
+        await this.notificationRepository.create({
+          userId: post.authorId, // ✅ Ahora sabemos que no es null
+          type: 'post_vote',
+          content: `${voter?.username || 'Alguien'} votó positivamente tu post`,
+          relatedData: {
+            postId: post.id,
+            voteType: voteType,
+            authorId: voter?.id,
+            authorUsername: voter?.username,
+            postTitle: post.title
+          }
+        });
+      } catch (error) {
+        console.error('Error creating vote notification:', error);
+        // No lanzar error para no bloquear el voto
+      }
     }
 
     const actionMessages = {
@@ -96,31 +127,37 @@ export class VotePost {
   }
 
   private async updateAuthorReputation(
-    authorId: number, 
+    authorId: number,
     action: 'created' | 'updated' | 'removed',
     newVoteType: 1 | -1,
     oldVoteType?: 1 | -1
   ) {
-    const author = await this.userRepository.findById(authorId);
-    if (!author) return;
+    try {
+      const author = await this.userRepository.findById(authorId);
+      if (!author) return;
 
-    let reputationChange = 0;
+      let reputationChange = 0;
 
-    if (action === 'created') {
-      reputationChange = newVoteType === 1 ? 5 : -2; // +5 por upvote, -2 por downvote
-    } else if (action === 'updated') {
-      // Revertir voto anterior y aplicar nuevo
-      const oldChange = oldVoteType === 1 ? 5 : -2;
-      const newChange = newVoteType === 1 ? 5 : -2;
-      reputationChange = newChange - oldChange;
-    } else if (action === 'removed') {
-      // Revertir el cambio
-      reputationChange = newVoteType === 1 ? -5 : 2;
-    }
+      if (action === 'created') {
+        reputationChange = newVoteType === 1 ? 5 : -2; // +5 por upvote, -2 por downvote
+      } else if (action === 'updated') {
+        // Revertir voto anterior y aplicar nuevo
+        const oldChange = oldVoteType === 1 ? 5 : -2;
+        const newChange = newVoteType === 1 ? 5 : -2;
+        reputationChange = newChange - oldChange;
+      } else if (action === 'removed') {
+        // Revertir el cambio (usar oldVoteType si existe, sino newVoteType)
+        const removedVoteType = oldVoteType || newVoteType;
+        reputationChange = removedVoteType === 1 ? -5 : 2;
+      }
 
-    if (reputationChange !== 0) {
-      const newReputation = Math.max(0, author.reputation + reputationChange);
-      await this.userRepository.updateById(authorId, { reputation: newReputation });
+      if (reputationChange !== 0) {
+        const newReputation = Math.max(0, author.reputation + reputationChange);
+        await this.userRepository.updateById(authorId, { reputation: newReputation });
+      }
+    } catch (error) {
+      console.error('Error updating author reputation:', error);
+      // No lanzar error para no bloquear el voto
     }
   }
 }

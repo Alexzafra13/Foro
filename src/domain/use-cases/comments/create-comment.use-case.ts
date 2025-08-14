@@ -1,4 +1,4 @@
-// src/domain/use-cases/comments/create-comment.use-case.ts - ACTUALIZADO CON NOTIFICACIONES
+// src/domain/use-cases/comments/create-comment.use-case.ts - ACTUALIZADO CON NOTIFICACIONES CON NOMBRES
 import { CommentRepository } from '../../repositories/comment.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { PostRepository } from '../../repositories/post.repository';
@@ -92,7 +92,7 @@ export class CreateComment implements CreateCommentUseCase {
       parentCommentId
     });
 
-    // 6. ✅ NUEVO: Crear notificaciones (sin bloquear la respuesta)
+    // 6. ✅ ACTUALIZADO: Crear notificaciones con información completa del usuario
     this.createNotifications(newComment, post, parentComment, author).catch(error => {
       console.error('Error creating notifications:', error);
     });
@@ -123,7 +123,7 @@ export class CreateComment implements CreateCommentUseCase {
     };
   }
 
-  // ✅ NUEVO: Método para crear notificaciones
+  // ✅ ACTUALIZADO: Método para crear notificaciones con nombres de usuario
   private async createNotifications(
     comment: any,
     post: any,
@@ -138,10 +138,13 @@ export class CreateComment implements CreateCommentUseCase {
         await this.notificationRepository.create({
           userId: post.authorId,
           type: 'post_reply',
-          content: `${author.username} commented on your post`,
+          content: `${author.username} respondió a tu post`, // ✅ ESPAÑOL + USERNAME
           relatedData: {
             postId: post.id,
-            commentId: comment.id
+            commentId: comment.id,
+            authorId: author.id,
+            authorUsername: author.username, // ✅ AGREGAR PARA FRONTEND
+            postTitle: post.title || `Post #${post.id}`
           }
         });
       }
@@ -151,10 +154,14 @@ export class CreateComment implements CreateCommentUseCase {
         await this.notificationRepository.create({
           userId: parentComment.authorId,
           type: 'comment_reply',
-          content: `${author.username} replied to your comment`,
+          content: `${author.username} respondió a tu comentario`, // ✅ ESPAÑOL + USERNAME
           relatedData: {
             postId: post.id,
-            commentId: comment.id
+            commentId: comment.id,
+            parentCommentId: parentComment.id,
+            authorId: author.id,
+            authorUsername: author.username, // ✅ AGREGAR PARA FRONTEND
+            postTitle: post.title || `Post #${post.id}`
           }
         });
       }

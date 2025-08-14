@@ -12,6 +12,11 @@ export interface CreateNotificationRequestDto {
   relatedData?: {
     postId?: number;
     commentId?: number;
+    parentCommentId?: number;
+    authorId?: number;
+    authorUsername?: string;
+    postTitle?: string;
+    voteType?: number;
     mentionedBy?: number;
     votedBy?: number;
   };
@@ -92,35 +97,52 @@ export class CreateNotification {
     };
   }
 
-  // ✅ MÉTODOS HELPER USANDO STRINGS DIRECTOS (TU ARQUITECTURA ACTUAL)
+  // ✅ MÉTODOS HELPER ACTUALIZADOS EN ESPAÑOL CON MÁS DATOS
   
   // Crear notificación de respuesta a post
-  static forPostReply(postAuthorId: number, postId: number, commentId: number, replierName?: string): CreateNotificationRequestDto {
+  static forPostReply(postAuthorId: number, postId: number, commentId: number, replierName?: string, postTitle?: string): CreateNotificationRequestDto {
     return {
       userId: postAuthorId,
-      type: 'post_reply', // ✅ STRING DIRECTO
+      type: 'post_reply' as NotificationType,
       content: replierName ? `${replierName} respondió a tu post` : 'Alguien respondió a tu post',
-      relatedData: { postId, commentId }
+      relatedData: { 
+        postId, 
+        commentId,
+        authorUsername: replierName,
+        postTitle: postTitle || `Post #${postId}`
+      }
     };
   }
 
   // Crear notificación de voto en post
-  static forPostVote(targetUserId: number, postId: number, voterName?: string): CreateNotificationRequestDto {
+  static forPostVote(targetUserId: number, postId: number, voterName?: string, voteType?: number, postTitle?: string): CreateNotificationRequestDto {
+    const voteText = voteType === 1 ? 'votó positivamente' : voteType === -1 ? 'votó negativamente' : 'votó';
     return {
       userId: targetUserId,
-      type: 'post_vote', // ✅ STRING DIRECTO
-      content: voterName ? `${voterName} votó tu post` : 'Alguien votó tu post',
-      relatedData: { postId }
+      type: 'post_vote' as NotificationType,
+      content: voterName ? `${voterName} ${voteText} tu post` : `Alguien ${voteText} tu post`,
+      relatedData: { 
+        postId,
+        voteType,
+        authorUsername: voterName,
+        postTitle: postTitle || `Post #${postId}`
+      }
     };
   }
 
   // Crear notificación de voto en comentario
-  static forCommentVote(targetUserId: number, commentId: number, voterName?: string): CreateNotificationRequestDto {
+  static forCommentVote(targetUserId: number, commentId: number, voterName?: string, voteType?: number, postId?: number): CreateNotificationRequestDto {
+    const voteText = voteType === 1 ? 'votó positivamente' : voteType === -1 ? 'votó negativamente' : 'votó';
     return {
       userId: targetUserId,
-      type: 'comment_vote', // ✅ STRING DIRECTO
-      content: voterName ? `${voterName} votó tu comentario` : 'Alguien votó tu comentario',
-      relatedData: { commentId }
+      type: 'comment_vote' as NotificationType,
+      content: voterName ? `${voterName} ${voteText} tu comentario` : `Alguien ${voteText} tu comentario`,
+      relatedData: { 
+        commentId,
+        postId,
+        voteType,
+        authorUsername: voterName
+      }
     };
   }
 
@@ -128,9 +150,29 @@ export class CreateNotification {
   static forMention(mentionedUserId: number, postId?: number, commentId?: number, mentionerName?: string): CreateNotificationRequestDto {
     return {
       userId: mentionedUserId,
-      type: 'mention', // ✅ STRING DIRECTO
+      type: 'mention' as NotificationType,
       content: mentionerName ? `${mentionerName} te mencionó` : 'Alguien te mencionó',
-      relatedData: { postId, commentId }
+      relatedData: { 
+        postId, 
+        commentId,
+        authorUsername: mentionerName
+      }
+    };
+  }
+
+  // Crear notificación de respuesta a comentario
+  static forCommentReply(parentCommentAuthorId: number, postId: number, commentId: number, parentCommentId: number, replierName?: string, postTitle?: string): CreateNotificationRequestDto {
+    return {
+      userId: parentCommentAuthorId,
+      type: 'comment_reply' as NotificationType,
+      content: replierName ? `${replierName} respondió a tu comentario` : 'Alguien respondió a tu comentario',
+      relatedData: {
+        postId,
+        commentId,
+        parentCommentId,
+        authorUsername: replierName,
+        postTitle: postTitle || `Post #${postId}`
+      }
     };
   }
 
@@ -138,7 +180,7 @@ export class CreateNotification {
   static forWelcome(userId: number, username?: string): CreateNotificationRequestDto {
     return {
       userId,
-      type: 'welcome', // ✅ STRING DIRECTO
+      type: 'welcome' as NotificationType,
       content: username ? `¡Bienvenido/a al foro, ${username}!` : '¡Bienvenido/a al foro!',
       relatedData: {}
     };
@@ -148,7 +190,7 @@ export class CreateNotification {
   static forSystem(userId: number, message: string): CreateNotificationRequestDto {
     return {
       userId,
-      type: 'system', // ✅ STRING DIRECTO
+      type: 'system' as NotificationType,
       content: message,
       relatedData: {}
     };

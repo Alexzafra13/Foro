@@ -78,36 +78,36 @@ export class NotificationEntity {
   }
 
   // Formatear mensaje según el tipo
-  getFormattedMessage(): string {
-    switch (this.type) {
-      case 'post_reply':
-        return 'Someone replied to your post';
-      case 'comment_reply':
-        return 'Someone replied to your comment';
-      case 'post_vote':
-        return 'Your post received a vote';
-      case 'comment_vote':
-        return 'Your comment received a vote';
-      case 'mention':
-        return 'You were mentioned in a post';
-      case 'new_follower':
-        return 'You have a new follower';
-      case 'post_deleted':
-        return 'Your post was deleted by a moderator';
-      case 'comment_deleted':
-        return 'Your comment was deleted by a moderator';
-      case 'welcome':
-        return 'Welcome to the forum!';
-      case 'email_verified':
-        return 'Your email has been verified';
-      case 'password_changed':
-        return 'Your password was changed successfully';
-      case 'system':
-        return this.content || 'System notification';
-      default:
-        return 'New notification';
-    }
+ getFormattedMessage(): string {
+  switch (this.type) {
+    case 'post_reply':
+      return 'Alguien respondió a tu post';
+    case 'comment_reply':
+      return 'Alguien respondió a tu comentario';
+    case 'post_vote':
+      return 'Alguien votó tu post';
+    case 'comment_vote':
+      return 'Alguien votó tu comentario';
+    case 'mention':
+      return 'Te mencionaron en una publicación';
+    case 'new_follower':
+      return 'Tienes un nuevo seguidor';
+    case 'post_deleted':
+      return 'Tu post fue eliminado';
+    case 'comment_deleted':
+      return 'Tu comentario fue eliminado';
+    case 'welcome':
+      return '¡Bienvenido/a al foro!';
+    case 'email_verified':
+      return 'Tu email ha sido verificado';
+    case 'password_changed':
+      return 'Tu contraseña fue cambiada exitosamente';
+    case 'system':
+      return this.content || 'Notificación del sistema';
+    default:
+      return 'Nueva notificación';
   }
+}
 
   // Obtener icono según el tipo
   getIcon(): string {
