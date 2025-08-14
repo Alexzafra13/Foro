@@ -1,4 +1,4 @@
-// src/domain/entities/notification.entity.ts
+// src/domain/entities/notification.entity.ts - CON TIPO 'moderation'
 export type NotificationType = 
   | 'post_reply'
   | 'comment_reply'
@@ -8,6 +8,7 @@ export type NotificationType =
   | 'new_follower'
   | 'post_deleted'
   | 'comment_deleted'
+  | 'moderation'  // ✅ NUEVO TIPO PARA MODERACIÓN
   | 'welcome'
   | 'email_verified'
   | 'password_changed'
@@ -26,6 +27,10 @@ export class NotificationEntity {
       commentId?: number;
       mentionedBy?: number;
       votedBy?: number;
+      // ✅ NUEVOS CAMPOS PARA MODERACIÓN
+      moderatorId?: number;
+      moderatorUsername?: string;
+      action?: 'comment_hidden' | 'comment_restored' | 'post_hidden' | 'post_restored';
     },
     public user?: {
       id: number;
@@ -78,36 +83,39 @@ export class NotificationEntity {
   }
 
   // Formatear mensaje según el tipo
- getFormattedMessage(): string {
-  switch (this.type) {
-    case 'post_reply':
-      return 'Alguien respondió a tu post';
-    case 'comment_reply':
-      return 'Alguien respondió a tu comentario';
-    case 'post_vote':
-      return 'Alguien votó tu post';
-    case 'comment_vote':
-      return 'Alguien votó tu comentario';
-    case 'mention':
-      return 'Te mencionaron en una publicación';
-    case 'new_follower':
-      return 'Tienes un nuevo seguidor';
-    case 'post_deleted':
-      return 'Tu post fue eliminado';
-    case 'comment_deleted':
-      return 'Tu comentario fue eliminado';
-    case 'welcome':
-      return '¡Bienvenido/a al foro!';
-    case 'email_verified':
-      return 'Tu email ha sido verificado';
-    case 'password_changed':
-      return 'Tu contraseña fue cambiada exitosamente';
-    case 'system':
-      return this.content || 'Notificación del sistema';
-    default:
-      return 'Nueva notificación';
+  getFormattedMessage(): string {
+    switch (this.type) {
+      case 'post_reply':
+        return 'Alguien respondió a tu post';
+      case 'comment_reply':
+        return 'Alguien respondió a tu comentario';
+      case 'post_vote':
+        return 'Alguien votó tu post';
+      case 'comment_vote':
+        return 'Alguien votó tu comentario';
+      case 'mention':
+        return 'Te mencionaron en una publicación';
+      case 'new_follower':
+        return 'Tienes un nuevo seguidor';
+      case 'post_deleted':
+        return 'Tu post fue eliminado';
+      case 'comment_deleted':
+        return 'Tu comentario fue eliminado';
+      // ✅ NUEVO CASO PARA MODERACIÓN
+      case 'moderation':
+        return this.content || 'Acción de moderación realizada';
+      case 'welcome':
+        return '¡Bienvenido/a al foro!';
+      case 'email_verified':
+        return 'Tu email ha sido verificado';
+      case 'password_changed':
+        return 'Tu contraseña fue cambiada exitosamente';
+      case 'system':
+        return this.content || 'Notificación del sistema';
+      default:
+        return 'Nueva notificación';
+    }
   }
-}
 
   // Obtener icono según el tipo
   getIcon(): string {
@@ -120,6 +128,7 @@ export class NotificationEntity {
       'new_follower': '👤',
       'post_deleted': '🗑️',
       'comment_deleted': '🗑️',
+      'moderation': '🛡️',  // ✅ NUEVO ICONO PARA MODERACIÓN
       'welcome': '👋',
       'email_verified': '✅',
       'password_changed': '🔒',
@@ -130,7 +139,7 @@ export class NotificationEntity {
 
   // Prioridad de la notificación
   getPriority(): 'high' | 'medium' | 'low' {
-    const highPriority: NotificationType[] = ['mention', 'post_deleted', 'comment_deleted', 'password_changed'];
+    const highPriority: NotificationType[] = ['mention', 'post_deleted', 'comment_deleted', 'moderation', 'password_changed'];
     const mediumPriority: NotificationType[] = ['post_reply', 'comment_reply', 'new_follower'];
     
     if (highPriority.includes(this.type)) return 'high';

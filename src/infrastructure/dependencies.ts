@@ -361,7 +361,10 @@ export class Dependencies {
       createComment,
       getComments,
       updateComment,
-      deleteComment
+      deleteComment,
+      commentRepository,
+  userRepository,
+  createNotification
     );
 
     const inviteController = new InviteController(

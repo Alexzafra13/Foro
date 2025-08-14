@@ -1,4 +1,4 @@
-// src/domain/datasources/comment.datasource.ts - ACTUALIZADA
+// src/domain/datasources/comment.datasource.ts - CORREGIDO
 import { CommentEntity } from '../entities/comment.entity';
 
 export interface CreateCommentDto {
@@ -15,8 +15,8 @@ export interface UpdateCommentDto {
   editCount?: number;
   isDeleted?: boolean;
   deletedAt?: Date;
-  deletedBy?: number;
-  deletionReason?: string;
+  deletedBy?: number | null; // ✅ PERMITIR NULL
+  deletionReason?: string | null; // ✅ PERMITIR NULL
   isHidden?: boolean;
   updatedAt?: Date;
 }
@@ -24,11 +24,11 @@ export interface UpdateCommentDto {
 export interface CommentFilters {
   postId?: number;
   authorId?: number;
-  parentCommentId?: number | null; // null para comentarios raíz, number para respuestas
+  parentCommentId?: number | null;
   isDeleted?: boolean;
   isHidden?: boolean;
-  includeDeleted?: boolean; // Para moderadores
-  includeHidden?: boolean;  // Para moderadores
+  includeDeleted?: boolean;
+  includeHidden?: boolean;
 }
 
 export interface CommentPaginationOptions {
@@ -52,26 +52,25 @@ export interface PaginatedCommentsResult<T> {
 
 export abstract class CommentDatasource {
   abstract create(createCommentDto: CreateCommentDto): Promise<CommentEntity>;
-  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>; // ✅ AGREGADO userId
+  abstract findById(id: number, userId?: number): Promise<CommentEntity | null>;
   abstract findMany(
     filters?: CommentFilters,
     pagination?: CommentPaginationOptions,
-    userId?: number // ✅ AGREGADO userId para obtener votos del usuario
+    userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   abstract updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity>;
   abstract deleteById(id: number): Promise<CommentEntity>;
   
-  // Métodos específicos para comentarios
   abstract findByPostId(
     postId: number, 
     pagination?: CommentPaginationOptions,
-    userId?: number // ✅ AGREGADO userId
+    userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract findReplies(
     parentCommentId: number,
     pagination?: CommentPaginationOptions,
-    userId?: number // ✅ AGREGADO userId
+    userId?: number
   ): Promise<PaginatedCommentsResult<CommentEntity>>;
   
   abstract getCommentStats(commentId: number): Promise<{
@@ -82,5 +81,4 @@ export abstract class CommentDatasource {
   }>;
 
   abstract countByUserId(userId: number): Promise<number>;
-
 }

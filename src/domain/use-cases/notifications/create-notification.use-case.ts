@@ -1,4 +1,4 @@
-// src/domain/use-cases/notifications/create-notification.use-case.ts
+// src/domain/use-cases/notifications/create-notification.use-case.ts - CORREGIDO
 
 import { NotificationRepository } from '@/domain/repositories/notification.repository'; 
 import { UserRepository } from '@/domain/repositories/user.repository'; 
@@ -19,6 +19,15 @@ export interface CreateNotificationRequestDto {
     voteType?: number;
     mentionedBy?: number;
     votedBy?: number;
+    // ✅ AGREGAR CAMPOS DE MODERACIÓN
+    moderatorId?: number;
+    moderatorUsername?: string;
+    action?: 'comment_hidden' | 'comment_restored' | 'post_hidden' | 'post_restored' | string;
+    bannedUserId?: number;      
+    bannedByUserId?: number;    
+    unbannedBy?: number;        
+    reason?: string;
+    [key: string]: any; // Para flexibilidad futura
   };
 }
 
@@ -172,6 +181,36 @@ export class CreateNotification {
         parentCommentId,
         authorUsername: replierName,
         postTitle: postTitle || `Post #${postId}`
+      }
+    };
+  }
+
+  // ✅ NUEVO: Crear notificación de moderación
+  static forModeration(
+    userId: number, 
+    action: 'comment_hidden' | 'comment_restored' | 'post_hidden' | 'post_restored',
+    moderatorName: string,
+    commentId?: number,
+    postId?: number
+  ): CreateNotificationRequestDto {
+    const actionText = {
+      'comment_hidden': 'ha sido ocultado por moderación',
+      'comment_restored': 'ha sido restaurado',
+      'post_hidden': 'ha sido ocultado por moderación', 
+      'post_restored': 'ha sido restaurado'
+    };
+
+    const contentType = action.includes('comment') ? 'comentario' : 'post';
+    
+    return {
+      userId,
+      type: 'moderation' as NotificationType,
+      content: `Tu ${contentType} ${actionText[action]} por ${moderatorName}`,
+      relatedData: {
+        commentId,
+        postId,
+        moderatorUsername: moderatorName,
+        action
       }
     };
   }

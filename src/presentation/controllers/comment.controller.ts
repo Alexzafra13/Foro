@@ -1,17 +1,25 @@
-// src/presentation/controllers/comment.controller.ts - ACTUALIZADO PARA FORO PRIVADO
+// src/presentation/controllers/comment.controller.ts - CON NOTIFICACIONES
 import { Request, Response } from 'express';
 import { CreateComment } from '../../domain/use-cases/comments/create-comment.use-case';
 import { GetComments } from '../../domain/use-cases/comments/get-comments.use-case';
 import { UpdateComment } from '../../domain/use-cases/comments/update-comment.use-case';
-import { DeleteComment } from '@/domain/use-cases/comments/delete-comment.use-case'; 
+import { DeleteComment } from '../../domain/use-cases/comments/delete-comment.use-case'; 
 import { CustomError, DomainError } from '../../shared/errors';
+import { CommentRepository } from '../../domain/repositories/comment.repository';
+import { UserRepository } from '../../domain/repositories/user.repository';
+// ✅ AGREGAR PARA NOTIFICACIONES
+import { CreateNotification } from '../../domain/use-cases/notifications/create-notification.use-case';
 
 export class CommentController {
   constructor(
     private readonly createComment: CreateComment,
     private readonly getComments: GetComments,
     private readonly updateComment: UpdateComment,
-    private readonly deleteComment: DeleteComment
+    private readonly deleteComment: DeleteComment,
+    private readonly commentRepository: CommentRepository,
+    private readonly userRepository: UserRepository,
+    // ✅ AGREGAR USE CASE DE NOTIFICACIONES
+    private readonly createNotification: CreateNotification
   ) {}
 
   // POST /api/posts/:postId/comments
@@ -45,11 +53,11 @@ export class CommentController {
     }
   }
 
-  // GET /api/posts/:postId/comments - FORO PRIVADO: REQUIERE AUTENTICACIÓN
+  // GET /api/posts/:postId/comments
   async getByPostId(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.postId);
-      const userId = req.user?.userId; // ✅ Obtener userId
+      const userId = req.user?.userId;
       
       console.log(`🔍 CommentController.getByPostId called with:`, { 
         postId, 
@@ -87,7 +95,7 @@ export class CommentController {
 
       const result = await this.getComments.execute({
         postId,
-        userId, // ✅ PASAR userId REQUERIDO
+        userId,
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         sortBy: sortBy as any,
@@ -117,7 +125,6 @@ export class CommentController {
       const { content } = req.body;
       const userId = req.user?.userId!;
 
-      // Validaciones básicas
       if (isNaN(commentId)) {
         return res.status(400).json({
           success: false,
@@ -191,11 +198,11 @@ export class CommentController {
     }
   }
 
-  // GET /api/comments/:id/replies - Obtener respuestas
+  // GET /api/comments/:id/replies
   async getReplies(req: Request, res: Response) {
     try {
       const parentCommentId = parseInt(req.params.id);
-      const userId = req.user?.userId!; // ✅ REQUERIDO (foro privado)
+      const userId = req.user?.userId!;
       
       if (isNaN(parentCommentId)) {
         return res.status(400).json({
@@ -204,7 +211,6 @@ export class CommentController {
         });
       }
 
-      // TODO: Implementar cuando tengamos más tiempo
       res.json({
         success: true,
         data: [],
@@ -223,10 +229,173 @@ export class CommentController {
     }
   }
 
+  // ✅ NUEVO: Ocultar comentario por moderación CON NOTIFICACIÓN
+  async hideByModeration(req: Request, res: Response) {
+    try {
+      const commentId = parseInt(req.params.id);
+      const moderatorId = req.user?.userId!;
+
+      if (isNaN(commentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid comment ID',
+          code: 'INVALID_COMMENT_ID'
+        });
+      }
+
+      const comment = await this.commentRepository.findById(commentId);
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          error: 'Comment not found',
+          code: 'COMMENT_NOT_FOUND'
+        });
+      }
+
+      const moderator = await this.userRepository.findById(moderatorId);
+      if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions for moderation',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        });
+      }
+
+      if (comment.isAuthor(moderatorId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot moderate your own comments',
+          code: 'CANNOT_MODERATE_OWN_COMMENT'
+        });
+      }
+
+      // Ocultar comentario
+      await this.commentRepository.updateById(commentId, {
+        isHidden: true,
+        deletedBy: moderatorId,
+        deletionReason: 'moderation'
+      });
+
+      // ✅ ENVIAR NOTIFICACIÓN AL AUTOR DEL COMENTARIO
+      if (comment.authorId && comment.authorId !== moderatorId) {
+        try {
+          // Usar el método helper para moderación
+          const notificationDto = CreateNotification.forModeration(
+            comment.authorId,
+            'comment_hidden',
+            moderator.username,
+            comment.id,
+            comment.postId
+          );
+          
+          await this.createNotification.execute(notificationDto);
+          console.log(`📬 Moderation notification sent to user ${comment.authorId}`);
+        } catch (notifError) {
+          console.error('Failed to send moderation notification:', notifError);
+          // No fallar la operación si falla la notificación
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: comment.id,
+          isHidden: true,
+          moderatedBy: {
+            id: moderator.id,
+            username: moderator.username,
+            role: moderator.role!.name
+          },
+          moderatedAt: new Date()
+        },
+        message: 'Comment hidden by moderation'
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error hiding comment');
+    }
+  }
+
+  // ✅ NUEVO: Mostrar comentario oculto CON NOTIFICACIÓN
+  async unhideByModeration(req: Request, res: Response) {
+    try {
+      const commentId = parseInt(req.params.id);
+      const moderatorId = req.user?.userId!;
+
+      if (isNaN(commentId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid comment ID',
+          code: 'INVALID_COMMENT_ID'
+        });
+      }
+
+      const comment = await this.commentRepository.findById(commentId);
+      if (!comment) {
+        return res.status(404).json({
+          success: false,
+          error: 'Comment not found',
+          code: 'COMMENT_NOT_FOUND'
+        });
+      }
+
+      const moderator = await this.userRepository.findById(moderatorId);
+      if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions for moderation',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        });
+      }
+
+      // Mostrar comentario
+      await this.commentRepository.updateById(commentId, {
+        isHidden: false,
+        deletedBy: null,
+        deletionReason: null
+      });
+
+      // ✅ ENVIAR NOTIFICACIÓN AL AUTOR DEL COMENTARIO
+      if (comment.authorId && comment.authorId !== moderatorId) {
+        try {
+          // Usar el método helper para moderación
+          const notificationDto = CreateNotification.forModeration(
+            comment.authorId,
+            'comment_restored',
+            moderator.username,
+            comment.id,
+            comment.postId
+          );
+          
+          await this.createNotification.execute(notificationDto);
+          console.log(`📬 Restoration notification sent to user ${comment.authorId}`);
+        } catch (notifError) {
+          console.error('Failed to send restoration notification:', notifError);
+          // No fallar la operación si falla la notificación
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: comment.id,
+          isHidden: false,
+          restoredBy: {
+            id: moderator.id,
+            username: moderator.username,
+            role: moderator.role!.name
+          },
+          restoredAt: new Date()
+        },
+        message: 'Comment restored by moderation'
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error restoring comment');
+    }
+  }
+
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);
     
-    // Errores específicos de edición
     if (error.message.includes('Cannot edit deleted')) {
       return res.status(400).json({
         success: false,
@@ -251,7 +420,7 @@ export class CommentController {
       });
     }
 
-    if (error.message.includes('delete your own')) {
+    if (error.message.includes('delete your own') || error.message.includes('insufficient permissions')) {
       return res.status(403).json({
         success: false,
         error: 'You can only delete your own comments or need moderator permissions',
