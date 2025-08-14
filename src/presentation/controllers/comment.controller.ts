@@ -1,4 +1,4 @@
-// src/presentation/controllers/comment.controller.ts - CON NOTIFICACIONES
+// src/presentation/controllers/comment.controller.ts - COMPLETO CON MODERACIÓN MEJORADA
 import { Request, Response } from 'express';
 import { CreateComment } from '../../domain/use-cases/comments/create-comment.use-case';
 import { GetComments } from '../../domain/use-cases/comments/get-comments.use-case';
@@ -229,11 +229,13 @@ export class CommentController {
     }
   }
 
-  // ✅ NUEVO: Ocultar comentario por moderación CON NOTIFICACIÓN
+  // ✅ MEJORADO: Ocultar comentario por moderación CON VALIDACIONES ADICIONALES
   async hideByModeration(req: Request, res: Response) {
     try {
       const commentId = parseInt(req.params.id);
       const moderatorId = req.user?.userId!;
+
+      console.log(`🔍 Attempting to hide comment ${commentId} by moderator ${moderatorId}`);
 
       if (isNaN(commentId)) {
         return res.status(400).json({
@@ -243,6 +245,7 @@ export class CommentController {
         });
       }
 
+      // Verificar que el comentario existe
       const comment = await this.commentRepository.findById(commentId);
       if (!comment) {
         return res.status(404).json({
@@ -252,6 +255,7 @@ export class CommentController {
         });
       }
 
+      // Verificar permisos del moderador
       const moderator = await this.userRepository.findById(moderatorId);
       if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
         return res.status(403).json({
@@ -261,6 +265,7 @@ export class CommentController {
         });
       }
 
+      // Verificar que no está intentando moderar su propio comentario
       if (comment.isAuthor(moderatorId)) {
         return res.status(400).json({
           success: false,
@@ -269,17 +274,30 @@ export class CommentController {
         });
       }
 
+      // ✅ NUEVA VALIDACIÓN: Verificar que el comentario no está ya oculto
+      if (comment.isHidden) {
+        return res.status(400).json({
+          success: false,
+          error: 'Comment is already hidden',
+          code: 'COMMENT_ALREADY_HIDDEN'
+        });
+      }
+
+      console.log(`🔄 Hiding comment ${commentId}...`);
+
       // Ocultar comentario
-      await this.commentRepository.updateById(commentId, {
+      const updatedComment = await this.commentRepository.updateById(commentId, {
         isHidden: true,
         deletedBy: moderatorId,
-        deletionReason: 'moderation'
+        deletionReason: 'moderation',
+        updatedAt: new Date()
       });
+
+      console.log(`✅ Comment ${commentId} hidden successfully`);
 
       // ✅ ENVIAR NOTIFICACIÓN AL AUTOR DEL COMENTARIO
       if (comment.authorId && comment.authorId !== moderatorId) {
         try {
-          // Usar el método helper para moderación
           const notificationDto = CreateNotification.forModeration(
             comment.authorId,
             'comment_hidden',
@@ -299,7 +317,7 @@ export class CommentController {
       res.json({
         success: true,
         data: {
-          id: comment.id,
+          id: updatedComment.id,
           isHidden: true,
           moderatedBy: {
             id: moderator.id,
@@ -311,15 +329,18 @@ export class CommentController {
         message: 'Comment hidden by moderation'
       });
     } catch (error) {
+      console.error('❌ Error in hideByModeration:', error);
       this.handleError(error, res, 'Error hiding comment');
     }
   }
 
-  // ✅ NUEVO: Mostrar comentario oculto CON NOTIFICACIÓN
+  // ✅ COMPLETADO: Mostrar comentario oculto CON VALIDACIONES ADICIONALES
   async unhideByModeration(req: Request, res: Response) {
     try {
       const commentId = parseInt(req.params.id);
       const moderatorId = req.user?.userId!;
+
+      console.log(`🔍 Attempting to unhide comment ${commentId} by moderator ${moderatorId}`);
 
       if (isNaN(commentId)) {
         return res.status(400).json({
@@ -329,6 +350,7 @@ export class CommentController {
         });
       }
 
+      // Verificar que el comentario existe
       const comment = await this.commentRepository.findById(commentId);
       if (!comment) {
         return res.status(404).json({
@@ -338,6 +360,7 @@ export class CommentController {
         });
       }
 
+      // Verificar permisos del moderador
       const moderator = await this.userRepository.findById(moderatorId);
       if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
         return res.status(403).json({
@@ -347,17 +370,39 @@ export class CommentController {
         });
       }
 
-      // Mostrar comentario
-      await this.commentRepository.updateById(commentId, {
+      // Verificar que no está intentando restaurar su propio comentario
+      if (comment.isAuthor(moderatorId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot moderate your own comments',
+          code: 'CANNOT_MODERATE_OWN_COMMENT'
+        });
+      }
+
+      // ✅ NUEVA VALIDACIÓN: Verificar que el comentario está realmente oculto
+      if (!comment.isHidden) {
+        return res.status(400).json({
+          success: false,
+          error: 'Comment is not hidden',
+          code: 'COMMENT_NOT_HIDDEN'
+        });
+      }
+
+      console.log(`🔄 Restoring comment ${commentId}...`);
+
+      // Restaurar comentario
+      const updatedComment = await this.commentRepository.updateById(commentId, {
         isHidden: false,
         deletedBy: null,
-        deletionReason: null
+        deletionReason: null,
+        updatedAt: new Date()
       });
+
+      console.log(`✅ Comment ${commentId} restored successfully`);
 
       // ✅ ENVIAR NOTIFICACIÓN AL AUTOR DEL COMENTARIO
       if (comment.authorId && comment.authorId !== moderatorId) {
         try {
-          // Usar el método helper para moderación
           const notificationDto = CreateNotification.forModeration(
             comment.authorId,
             'comment_restored',
@@ -377,7 +422,7 @@ export class CommentController {
       res.json({
         success: true,
         data: {
-          id: comment.id,
+          id: updatedComment.id,
           isHidden: false,
           restoredBy: {
             id: moderator.id,
@@ -389,10 +434,12 @@ export class CommentController {
         message: 'Comment restored by moderation'
       });
     } catch (error) {
+      console.error('❌ Error in unhideByModeration:', error);
       this.handleError(error, res, 'Error restoring comment');
     }
   }
 
+  // ✅ MEJORADO: Error handling con casos específicos de moderación
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);
     
@@ -441,6 +488,31 @@ export class CommentController {
         success: false,
         error: 'Cannot edit deleted comment',
         code: 'COMMENT_DELETED'
+      });
+    }
+
+    // ✅ NUEVOS: Errores específicos de moderación
+    if (error.message.includes('already hidden')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment is already hidden',
+        code: 'COMMENT_ALREADY_HIDDEN'
+      });
+    }
+
+    if (error.message.includes('not hidden')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment is not hidden',
+        code: 'COMMENT_NOT_HIDDEN'
+      });
+    }
+
+    if (error.message.includes('moderate your own')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot moderate your own comments',
+        code: 'CANNOT_MODERATE_OWN_COMMENT'
       });
     }
     

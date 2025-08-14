@@ -198,8 +198,8 @@ export class PrismaCommentDatasource implements CommentDatasource {
     const filters = { 
       postId, 
       parentCommentId: null,
-      isDeleted: false,
-      isHidden: false
+      isDeleted: false
+      // ✅ REMOVIDO: isHidden: false - Ahora mostramos comentarios moderados
     };
 
     return this.findMany(filters, pagination, userId);
@@ -213,8 +213,8 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return this.findMany(
       { 
         parentCommentId,
-        isDeleted: false,
-        isHidden: false
+        isDeleted: false
+        // ✅ REMOVIDO: isHidden: false - Ahora mostramos comentarios moderados
       },
       pagination,
       userId
@@ -237,8 +237,8 @@ export class PrismaCommentDatasource implements CommentDatasource {
         this.prisma.comment.count({
           where: { 
             parentCommentId: commentId, 
-            isDeleted: false,
-            isHidden: false
+            isDeleted: false
+            // ✅ REMOVIDO: isHidden: false - Incluir respuestas moderadas en el conteo
           }
         })
       ]);
@@ -277,8 +277,8 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return await this.prisma.comment.count({
       where: { 
         authorId: userId,
-        isDeleted: false,
-        isHidden: false
+        isDeleted: false
+        // ✅ REMOVIDO: isHidden: false - Incluir comentarios moderados en estadísticas de usuario
       }
     });
   }
@@ -295,6 +295,7 @@ export class PrismaCommentDatasource implements CommentDatasource {
     return userVote ? userVote.voteType : null;
   }
 
+  // ✅ FUNCIÓN BUILDWHERECLAUSE ACTUALIZADA PARA MODERACIÓN
   private buildWhereClause(filters?: CommentFilters) {
     const where: any = {};
 
@@ -310,17 +311,23 @@ export class PrismaCommentDatasource implements CommentDatasource {
       where.parentCommentId = filters.parentCommentId;
     }
 
+    // ✅ SOLO OCULTAR COMENTARIOS ELIMINADOS, NO LOS MODERADOS
     if (filters?.isDeleted !== undefined) {
       where.isDeleted = filters.isDeleted;
     } else if (!filters?.includeDeleted) {
-      where.isDeleted = false;
+      where.isDeleted = false; // Solo excluir eliminados
     }
 
+    // ✅ COMENTARIO: Ya no ocultamos los comentarios moderados por defecto
+    // Los comentarios con isHidden=true ahora se muestran con mensaje de moderación
     if (filters?.isHidden !== undefined) {
       where.isHidden = filters.isHidden;
-    } else if (!filters?.includeHidden) {
-      where.isHidden = false;
     }
+    
+    // ✅ REMOVIDO: Ya no excluimos isHidden por defecto
+    // else if (!filters?.includeHidden) {
+    //   where.isHidden = false;
+    // }
 
     return where;
   }
