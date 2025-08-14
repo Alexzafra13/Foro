@@ -6,13 +6,15 @@ import { MarkNotificationAsRead } from '../../domain/use-cases/notifications/mar
 import { MarkAllAsRead } from '../../domain/use-cases/notifications/mark-all-as-read.use-case';
 import { CustomError, DomainError } from '../../shared/errors';
 import { SSEController } from './sse.controller'; // ✅ Importación añadida
+import { DeleteNotification } from '@/domain/use-cases/notifications/delete-notification.use-case';
 
 export class NotificationController {
   constructor(
     private readonly createNotification: CreateNotification,
     private readonly getUserNotifications: GetUserNotifications,
     private readonly markNotificationAsRead: MarkNotificationAsRead,
-    private readonly markAllAsReadUseCase: MarkAllAsRead
+    private readonly markAllAsReadUseCase: MarkAllAsRead,
+    private readonly deleteNotification: DeleteNotification
   ) {}
 
   async getMany(req: Request, res: Response) {
@@ -184,6 +186,33 @@ export class NotificationController {
       });
     } catch (error) {
       this.handleError(error, res, 'Error creating test notification');
+    }
+  }
+
+async delete(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId!;
+      const notificationId = parseInt(req.params.id);
+
+      if (isNaN(notificationId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid notification ID'
+        });
+      }
+
+      const result = await this.deleteNotification.execute({
+        notificationId,
+        userId
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: result.message
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error deleting notification');
     }
   }
 

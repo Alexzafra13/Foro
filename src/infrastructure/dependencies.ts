@@ -45,6 +45,7 @@ import { CreateNotification } from "../domain/use-cases/notifications/create-not
 import { GetUserNotifications } from "../domain/use-cases/notifications/get-user-notifications.use-case";
 import { MarkNotificationAsRead } from "../domain/use-cases/notifications/mark-notification-as-read.use-case";
 import { MarkAllAsRead } from "../domain/use-cases/notifications/mark-all-as-read.use-case";
+import { DeleteNotification } from '@/domain/use-cases/notifications/delete-notification.use-case';
 
 // Use Cases - Auth
 import { RegisterUser } from "../domain/use-cases/auth/register-user.use-case";
@@ -224,6 +225,8 @@ export class Dependencies {
     );
     const markAllAsRead = new MarkAllAsRead(notificationRepository);
 
+    const deleteNotification = new DeleteNotification(notificationRepository);
+
     // ===== USE CASES - AUTH =====
     const sendVerificationEmail = new SendVerificationEmail(
       emailVerificationTokenRepository,
@@ -400,7 +403,8 @@ export class Dependencies {
       createNotification,
       getUserNotifications,
       markNotificationAsRead,
-      markAllAsRead
+      markAllAsRead,
+      deleteNotification
     );
 
     const moderationController = new ModerationController(

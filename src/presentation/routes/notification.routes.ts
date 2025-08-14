@@ -31,6 +31,10 @@ export class NotificationRoutes {
       deps.controllers.notificationController.markAsRead.bind(deps.controllers.notificationController)
     );
 
+    router.delete('/:id',
+  deps.controllers.notificationController.delete.bind(deps.controllers.notificationController)
+);
+
     router.post('/',
   deps.controllers.notificationController.create.bind(deps.controllers.notificationController)
 );
