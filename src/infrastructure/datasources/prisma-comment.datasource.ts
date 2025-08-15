@@ -1,4 +1,4 @@
-// src/infrastructure/datasources/prisma-comment.datasource.ts
+// src/infrastructure/datasources/prisma-comment.datasource.ts - VERSIÓN CORREGIDA CON DEBUGGING
 import { PrismaClient } from '@prisma/client';
 import { 
   CommentDatasource, 
@@ -82,6 +82,16 @@ export class PrismaCommentDatasource implements CommentDatasource {
     const voteScore = this.calculateVoteScore(comment.votes);
     const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
 
+    // ✅ LOGGING PARA DEBUGGING
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 PrismaCommentDatasource.findById - Comment ${id}:`, {
+        isHidden: comment.isHidden,
+        isDeleted: comment.isDeleted,
+        type_isHidden: typeof comment.isHidden,
+        rawComment: { isHidden: comment.isHidden, isDeleted: comment.isDeleted }
+      });
+    }
+
     return CommentEntity.fromObject({ 
       ...comment, 
       voteScore,
@@ -107,6 +117,12 @@ export class PrismaCommentDatasource implements CommentDatasource {
       const where = this.buildWhereClause(filters);
       const orderBy = this.buildOrderByClause(pagination);
 
+      // ✅ LOGGING PARA DEBUGGING
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 PrismaCommentDatasource.findMany - WHERE clause:', where);
+        console.log('🔍 PrismaCommentDatasource.findMany - Filters:', filters);
+      }
+
       const [comments, total] = await Promise.all([
         this.prisma.comment.findMany({
           where,
@@ -118,12 +134,23 @@ export class PrismaCommentDatasource implements CommentDatasource {
         this.prisma.comment.count({ where })
       ]);
 
+      // ✅ LOGGING DETALLADO DE RESULTADOS
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔍 PrismaCommentDatasource.findMany - Found ${comments.length} comments`);
+        comments.forEach(comment => {
+          console.log(`📝 Raw Comment ${comment.id}: isHidden=${comment.isHidden} (${typeof comment.isHidden}), isDeleted=${comment.isDeleted} (${typeof comment.isDeleted})`);
+        });
+      }
+
       const processedComments = comments.map((comment) => {
         const voteScore = this.calculateVoteScore(comment.votes);
         const userVote = userId ? this.getUserVote(comment.votes, userId) : null;
         
-        return CommentEntity.fromObject({ 
-          ...comment, 
+        // ✅ MAPEO EXPLÍCITO PARA ASEGURAR TIPOS CORRECTOS
+        const commentData = {
+          ...comment,
+          isHidden: Boolean(comment.isHidden), // ✅ CONVERSIÓN EXPLÍCITA
+          isDeleted: Boolean(comment.isDeleted), // ✅ CONVERSIÓN EXPLÍCITA
           voteScore,
           userVote,
           parentComment: comment.parentComment ? {
@@ -131,8 +158,28 @@ export class PrismaCommentDatasource implements CommentDatasource {
             content: comment.parentComment.content.substring(0, 50) + '...',
             authorUsername: comment.parentComment.author?.username || 'Usuario eliminado'
           } : undefined
-        });
+        };
+
+        // ✅ LOGGING ANTES DE CREAR LA ENTIDAD
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔄 Processing Comment ${comment.id}:`, {
+            originalIsHidden: comment.isHidden,
+            mappedIsHidden: commentData.isHidden,
+            originalIsDeleted: comment.isDeleted,
+            mappedIsDeleted: commentData.isDeleted
+          });
+        }
+        
+        return CommentEntity.fromObject(commentData);
       });
+
+      // ✅ LOGGING FINAL
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ PrismaCommentDatasource.findMany - Processed ${processedComments.length} comments`);
+        processedComments.forEach(comment => {
+          console.log(`📤 Final Comment ${comment.id}: isHidden=${comment.isHidden}, isDeleted=${comment.isDeleted}`);
+        });
+      }
 
       return {
         data: processedComments,
@@ -152,6 +199,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
   }
 
   async updateById(id: number, updateDto: UpdateCommentDto): Promise<CommentEntity> {
+    // ✅ LOGGING DE ACTUALIZACIÓN
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 PrismaCommentDatasource.updateById - Comment ${id}:`, updateDto);
+    }
+
     const comment = await this.prisma.comment.update({
       where: { id },
       data: updateDto,
@@ -159,6 +211,15 @@ export class PrismaCommentDatasource implements CommentDatasource {
     });
 
     const voteScore = this.calculateVoteScore(comment.votes);
+    
+    // ✅ LOGGING DESPUÉS DE ACTUALIZACIÓN
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ PrismaCommentDatasource.updateById - Updated Comment ${id}:`, {
+        isHidden: comment.isHidden,
+        isDeleted: comment.isDeleted,
+        type_isHidden: typeof comment.isHidden
+      });
+    }
     
     return CommentEntity.fromObject({ 
       ...comment, 
@@ -201,6 +262,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
       isDeleted: false
       // ✅ REMOVIDO: isHidden: false - Ahora mostramos comentarios moderados
     };
+
+    // ✅ LOGGING
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 PrismaCommentDatasource.findByPostId - Post ${postId} with filters:`, filters);
+    }
 
     return this.findMany(filters, pagination, userId);
   }
@@ -328,6 +394,11 @@ export class PrismaCommentDatasource implements CommentDatasource {
     // else if (!filters?.includeHidden) {
     //   where.isHidden = false;
     // }
+
+    // ✅ LOGGING DEL WHERE CLAUSE
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 buildWhereClause result:', where);
+    }
 
     return where;
   }

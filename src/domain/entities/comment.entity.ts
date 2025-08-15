@@ -1,4 +1,4 @@
-// src/domain/entities/comment.entity.ts - VERSIÓN COMPLETA CON avatarUrl
+// src/domain/entities/comment.entity.ts - VERSIÓN COMPLETA CON FIX DE MODERACIÓN
 export class CommentEntity {
   constructor(
     public id: number,
@@ -40,6 +40,7 @@ export class CommentEntity {
     public userVote?: 1 | -1 | null
   ) {}
 
+  // ✅ FIX PRINCIPAL: Método fromObject corregido para manejar isHidden correctamente
   static fromObject(object: { [key: string]: any }): CommentEntity {
     const {
       id, postId, authorId, parentCommentId, content, isEdited, editedAt, editCount,
@@ -51,11 +52,45 @@ export class CommentEntity {
     if (!postId) throw new Error('Comment postId is required');
     if (!content) throw new Error('Comment content is required');
 
+    // ✅ MAPEO SEGURO DE VALORES BOOLEAN
+    const isHiddenValue = isHidden === true || isHidden === 1 || isHidden === '1' || isHidden === 'true';
+    const isDeletedValue = isDeleted === true || isDeleted === 1 || isDeleted === '1' || isDeleted === 'true';
+    const isEditedValue = isEdited === true || isEdited === 1 || isEdited === '1' || isEdited === 'true';
+
+    // ✅ LOGGING PARA DEBUGGING (remover en producción)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 CommentEntity.fromObject - Comment ${id}:`, {
+        originalIsHidden: isHidden,
+        mappedIsHidden: isHiddenValue,
+        originalIsDeleted: isDeleted,
+        mappedIsDeleted: isDeletedValue,
+        type_isHidden: typeof isHidden,
+        type_isDeleted: typeof isDeleted
+      });
+    }
+
     return new CommentEntity(
-      id, postId, authorId, parentCommentId, content, 
-      isEdited || false, editedAt, editCount || 0,
-      isDeleted || false, deletedAt, deletedBy, deletionReason, isHidden || false,
-      createdAt, updatedAt, author, parentComment, replies, _count, voteScore, userVote
+      id, 
+      postId, 
+      authorId, 
+      parentCommentId, 
+      content, 
+      isEditedValue, 
+      editedAt, 
+      editCount || 0,
+      isDeletedValue, 
+      deletedAt, 
+      deletedBy, 
+      deletionReason, 
+      isHiddenValue, // ✅ USAR VALOR MAPEADO CORRECTAMENTE
+      createdAt, 
+      updatedAt, 
+      author, 
+      parentComment, 
+      replies, 
+      _count, 
+      voteScore, 
+      userVote
     );
   }
 
@@ -75,6 +110,14 @@ export class CommentEntity {
     if (this.isDeleted) return false;
     
     if (this.isAuthor(userId)) return true;
+    
+    return ['admin', 'moderator'].includes(userRole);
+  }
+
+  // ✅ NUEVO: Verificar si puede ser moderado
+  canBeModeratedBy(userId: number, userRole: string): boolean {
+    if (this.isDeleted) return false;
+    if (this.isAuthor(userId)) return false; // No se puede moderar comentarios propios
     
     return ['admin', 'moderator'].includes(userRole);
   }
@@ -132,11 +175,20 @@ export class CommentEntity {
     this.deletionReason = reason;
   }
 
-  // Ocultar por moderación
+  // ✅ MEJORADO: Ocultar por moderación
   hideByModeration(moderatorId: number): void {
     this.isHidden = true;
     this.deletedBy = moderatorId;
     this.deletionReason = 'moderation';
+    this.updatedAt = new Date();
+  }
+
+  // ✅ NUEVO: Restaurar desde moderación
+  unhideByModeration(): void {
+    this.isHidden = false;
+    this.deletedBy = null;
+    this.deletionReason = null;
+    this.updatedAt = new Date();
   }
 
   // Verificar si está disponible para mostrar
@@ -144,7 +196,7 @@ export class CommentEntity {
     return !this.isDeleted && !this.isHidden;
   }
 
-  // Obtener contenido a mostrar
+  // ✅ MEJORADO: Obtener contenido a mostrar
   getDisplayContent(): string {
     if (this.isDeleted) {
       if (this.deletionReason === 'moderation') {
@@ -160,6 +212,27 @@ export class CommentEntity {
     return this.content;
   }
 
+  // ✅ NUEVO: Obtener estado de moderación
+  getModerationStatus(): {
+    isModerated: boolean;
+    canShowOriginalContent: boolean;
+    moderationMessage: string;
+  } {
+    if (!this.isHidden) {
+      return {
+        isModerated: false,
+        canShowOriginalContent: false,
+        moderationMessage: ''
+      };
+    }
+
+    return {
+      isModerated: true,
+      canShowOriginalContent: true,
+      moderationMessage: 'Este comentario ha sido moderado por violar las normas de la comunidad'
+    };
+  }
+
   // Verificar si es una respuesta
   isReply(): boolean {
     return this.parentCommentId !== null;
@@ -170,7 +243,7 @@ export class CommentEntity {
     return (this._count?.replies || 0) > 0;
   }
 
-  // ✅ NUEVOS MÉTODOS PARA AVATAR
+  // ✅ MÉTODOS PARA AVATAR
   hasAuthorAvatar(): boolean {
     return !!(this.author?.avatarUrl);
   }
@@ -194,6 +267,23 @@ export class CommentEntity {
       reputation: this.author.reputation,
       avatarUrl: this.author.avatarUrl,
       role: this.author.role
+    };
+  }
+
+  // ✅ NUEVO: Método para debugging (desarrollo)
+  getDebugInfo(): any {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return {
+      id: this.id,
+      isHidden: this.isHidden,
+      isDeleted: this.isDeleted,
+      isEdited: this.isEdited,
+      authorId: this.authorId,
+      deletionReason: this.deletionReason,
+      content: this.content.substring(0, 50) + '...',
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt
     };
   }
 }

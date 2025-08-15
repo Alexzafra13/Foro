@@ -1,4 +1,4 @@
-// src/domain/use-cases/comments/get-comments.use-case.ts - ACTUALIZADA PARA FORO PRIVADO
+// src/domain/use-cases/comments/get-comments.use-case.ts - ACTUALIZADA PARA FORO PRIVADO CON MODERACIÓN
 import { CommentRepository } from '../../repositories/comment.repository';
 import { PostRepository } from '../../repositories/post.repository';
 import { CommentPaginationOptions } from '../../datasources/comment.datasource';
@@ -23,6 +23,11 @@ export interface CommentSummaryDto {
   createdAt: Date;
   isReply: boolean;
   parentCommentId: number | null;
+  
+  // ✅ CRÍTICO: Añadir propiedades de moderación
+  isHidden: boolean;
+  isDeleted: boolean;
+  
   author: {
     id: number;
     username: string;
@@ -159,9 +164,16 @@ export class GetComments implements GetCommentsUseCase {
     );
   }
 
+  // ✅ MÉTODO formatComment CORREGIDO CON isHidden e isDeleted
   private async formatComment(comment: any): Promise<CommentSummaryDto> {
     // Obtener estadísticas detalladas del comentario
     const stats = await this.commentRepository.getCommentStats(comment.id);
+
+    console.log(`🔍 Formatting comment ${comment.id}:`, {
+      isHidden: comment.isHidden,
+      isDeleted: comment.isDeleted,
+      rawComment: comment
+    });
 
     const formatted: CommentSummaryDto = {
       id: comment.id,
@@ -172,31 +184,51 @@ export class GetComments implements GetCommentsUseCase {
       createdAt: comment.createdAt,
       isReply: comment.isReply(),
       parentCommentId: comment.parentCommentId,
+      
+      // ✅ CRÍTICO: Incluir propiedades de moderación con valores por defecto
+      isHidden: comment.isHidden ?? false,
+      isDeleted: comment.isDeleted ?? false,
+      
       author: comment.author ? {
         id: comment.author.id,
         username: comment.author.username,
-        reputation: comment.author.reputation,
+        reputation: comment.author.reputation ?? 0,
         avatarUrl: comment.author.avatarUrl || null,
-        role: comment.author.role
+        role: comment.author.role || { id: 1, name: 'user' }
       } : null,
+      
       parentComment: comment.parentComment,
+      
       stats: {
-        voteScore: stats.voteScore,
-        repliesCount: stats.repliesCount,
-        upvotes: stats.upvotes,
-        downvotes: stats.downvotes
+        voteScore: stats.voteScore ?? 0,
+        repliesCount: stats.repliesCount ?? 0,
+        upvotes: stats.upvotes ?? 0,
+        downvotes: stats.downvotes ?? 0
       },
+      
       // ✅ CAMPOS DE VOTOS PRINCIPALES
-      voteScore: comment.voteScore || 0,
+      voteScore: comment.voteScore ?? stats.voteScore ?? 0,
       userVote: comment.userVote || null
     };
+
+    console.log(`✅ Formatted comment ${comment.id}:`, {
+      isHidden: formatted.isHidden,
+      isDeleted: formatted.isDeleted,
+      hasAuthor: !!formatted.author
+    });
 
     return formatted;
   }
 
+  // ✅ ACTUALIZADO: Incluir comentarios moderados en el conteo total
   private async getTotalCommentsCount(postId: number): Promise<number> {
+    // Solo excluir comentarios eliminados, NO los moderados
     const result = await this.commentRepository.findMany(
-      { postId, isDeleted: false, isHidden: false },
+      { 
+        postId, 
+        isDeleted: false 
+        // ✅ REMOVIDO: isHidden: false - Los comentarios moderados se cuentan
+      },
       { page: 1, limit: 1 }
     );
     return result.pagination.total;
