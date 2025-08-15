@@ -39,6 +39,8 @@ import { NotificationRepositoryImpl } from "./repositories/notification.reposito
 import { BanUser } from "../domain/use-cases/moderation/ban-user.use-case";
 import { UnbanUser } from "../domain/use-cases/moderation/unban-user.use-case";
 import { GetBannedUsers } from "../domain/use-cases/moderation/get-banned-users.use-case";
+import { GetModeratedComments } from "../domain/use-cases/moderation/get-moderated-comments.use-case";
+import { GetModerationStats } from "../domain/use-cases/moderation/get-moderation-stats.use-case";
 
 // Use Cases - Notifications
 import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
@@ -198,19 +200,31 @@ export class Dependencies {
     const emailAdapter = createEmailAdapter();
 
     // ===== USE CASES - MODERATION =====
-    const banUser = new BanUser(
-      userRepository,
-      activityLogRepository,
-      notificationRepository
-    );
+const banUser = new BanUser(
+  userRepository,
+  activityLogRepository,
+  notificationRepository
+);
 
-    const unbanUser = new UnbanUser(
-      userRepository,
-      activityLogRepository,
-      notificationRepository
-    );
+const unbanUser = new UnbanUser(
+  userRepository,
+  activityLogRepository,
+  notificationRepository
+);
 
-    const getBannedUsers = new GetBannedUsers(userRepository);
+const getBannedUsers = new GetBannedUsers(userRepository);
+
+// ✅ AGREGAR ESTOS NUEVOS USE CASES:
+const getModeratedComments = new GetModeratedComments(
+  commentRepository,
+  userRepository
+);
+
+const getModerationStats = new GetModerationStats(
+  commentRepository,
+  userRepository
+);
+
 
     // ===== USE CASES - NOTIFICATIONS =====
     const createNotification = new CreateNotification(
@@ -410,11 +424,14 @@ export class Dependencies {
       deleteNotification
     );
 
-    const moderationController = new ModerationController(
-      banUser,
-      unbanUser,
-      getBannedUsers
-    );
+   const moderationController = new ModerationController(
+  banUser,
+  unbanUser,
+  getBannedUsers,
+  // ✅ NUEVAS DEPENDENCIAS
+  getModeratedComments,
+  getModerationStats
+);
 
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
     const dependencies = new Dependencies(
@@ -496,6 +513,8 @@ export class Dependencies {
         banUser,
         unbanUser,
         getBannedUsers,
+           getModeratedComments,
+    getModerationStats,
       },
 
       // Controllers
