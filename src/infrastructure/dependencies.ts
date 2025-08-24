@@ -310,7 +310,7 @@ const getModerationStats = new GetModerationStats(
 
     // ===== USE CASES - POSTS =====
     const createPost = new CreatePost(postRepository, userRepository);
-    const getPosts = new GetPosts(postRepository);
+    const getPosts = new GetPosts(postRepository, userRepository);
     const trackPostView = new TrackPostView(postViewRepository, postRepository);
     const getPostDetail = new GetPostDetail(postRepository, trackPostView);
     const updatePost = new UpdatePost(postRepository, userRepository);
