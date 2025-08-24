@@ -1,4 +1,4 @@
-// src/infrastructure/datasources/prisma-post.datasource.ts - ACTUALIZACIÓN
+// src/infrastructure/datasources/prisma-post.datasource.ts - COMPLETO CON MODERACIÓN
 import { PrismaClient } from '@prisma/client';
 import { 
   PostDatasource, 
@@ -16,21 +16,7 @@ export class PrismaPostDatasource implements PostDatasource {
   async create(createPostDto: CreatePostDto): Promise<PostEntity> {
     const post = await this.prisma.post.create({
       data: createPostDto,
-      include: {
-        author: {
-          include: { 
-            role: true 
-          }
-        },
-        channel: true,
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        votes: true
-      }
+      include: this.getPostInclude()
     });
 
     const voteScore = this.calculateVoteScore(post.votes);
@@ -42,39 +28,10 @@ export class PrismaPostDatasource implements PostDatasource {
     });
   }
 
-   async findById(id: number, userId?: number): Promise<PostEntity | null> {
+  async findById(id: number, userId?: number): Promise<PostEntity | null> {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            reputation: true,
-            avatarUrl: true, // ✅ INCLUIR avatarUrl
-            role: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        },
-        channel: {
-          select: {
-            id: true,
-            name: true,
-            isPrivate: true
-          }
-        },
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        votes: true
-      }
+      include: this.getPostInclude()
     });
 
     if (!post) return null;
@@ -89,7 +46,7 @@ export class PrismaPostDatasource implements PostDatasource {
     });
   }
 
-   async findMany(
+  async findMany(
     filters?: PostFilters,
     pagination?: PaginationOptions,
     userId?: number
@@ -107,36 +64,7 @@ export class PrismaPostDatasource implements PostDatasource {
         orderBy,
         skip,
         take: limit,
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              reputation: true,
-              avatarUrl: true, // ✅ INCLUIR avatarUrl
-              role: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              }
-            }
-          },
-          channel: {
-            select: {
-              id: true,
-              name: true,
-              isPrivate: true
-            }
-          },
-          _count: {
-            select: {
-              comments: true,
-              votes: true
-            }
-          },
-          votes: true
-        }
+        include: this.getPostInclude()
       }),
       this.prisma.post.count({ where })
     ]);
@@ -165,31 +93,32 @@ export class PrismaPostDatasource implements PostDatasource {
     };
   }
 
+  // ✅ ACTUALIZADO: updateById con soporte para campos de moderación
   async updateById(id: number, updateDto: UpdatePostDto): Promise<PostEntity> {
+    // ✅ LOGGING PARA DEBUGGING
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 PrismaPostDatasource.updateById - Post ${id}:`, updateDto);
+    }
+
     const post = await this.prisma.post.update({
       where: { id },
       data: {
-        ...updateDto,
+        ...updateDto, // ✅ ESTO AHORA INCLUYE isHidden, deletedBy, deletionReason
         updatedAt: new Date()
       },
-      include: {
-        author: {
-          include: { 
-            role: true 
-          }
-        },
-        channel: true,
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        votes: true
-      }
+      include: this.getPostInclude()
     });
 
     const voteScore = this.calculateVoteScore(post.votes);
+    
+    // ✅ LOGGING DESPUÉS DE ACTUALIZACIÓN
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ PrismaPostDatasource.updateById - Updated Post ${id}:`, {
+        isHidden: post.isHidden,
+        deletedBy: post.deletedBy,
+        deletionReason: post.deletionReason
+      });
+    }
     
     return PostEntity.fromObject({ 
       ...post, 
@@ -201,21 +130,7 @@ export class PrismaPostDatasource implements PostDatasource {
   async deleteById(id: number): Promise<PostEntity> {
     const post = await this.prisma.post.delete({
       where: { id },
-      include: {
-        author: {
-          include: { 
-            role: true 
-          }
-        },
-        channel: true,
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        votes: true
-      }
+      include: this.getPostInclude()
     });
 
     const voteScore = this.calculateVoteScore(post.votes);
@@ -243,7 +158,8 @@ export class PrismaPostDatasource implements PostDatasource {
     }
   }
 
-  // ✅ NUEVOS MÉTODOS PARA ESTADÍSTICAS
+  // ===== MÉTODOS PARA ESTADÍSTICAS =====
+
   async countByUserId(userId: number): Promise<number> {
     return await this.prisma.post.count({
       where: { authorId: userId }
@@ -253,21 +169,7 @@ export class PrismaPostDatasource implements PostDatasource {
   async findByUserId(userId: number): Promise<PostEntity[]> {
     const posts = await this.prisma.post.findMany({
       where: { authorId: userId },
-      include: {
-        author: {
-          include: { 
-            role: true 
-          }
-        },
-        channel: true,
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        votes: true
-      }
+      include: this.getPostInclude()
     });
 
     return posts.map(post => {
@@ -290,14 +192,128 @@ export class PrismaPostDatasource implements PostDatasource {
     });
     return result;
   }
-  async updateViews(id: number, views: number): Promise<void> {
-  await this.prisma.post.update({
-    where: { id },
-    data: { views }
-  });
-}
 
-  // Métodos auxiliares privados
+  async updateViews(id: number, views: number): Promise<void> {
+    await this.prisma.post.update({
+      where: { id },
+      data: { views }
+    });
+  }
+
+  // ✅ NUEVO: Método para obtener estadísticas de posts (para moderación)
+  async getPostStats(postId: number): Promise<{
+    commentsCount: number;
+    voteScore: number;
+    upvotes: number;
+    downvotes: number;
+    views: number;
+  }> {
+    try {
+      const stats = await this.prisma.post.findUnique({
+        where: { id: postId },
+        select: {
+          views: true,
+          _count: {
+            select: {
+              comments: {
+                where: {
+                  isDeleted: false,
+                  isHidden: false
+                }
+              },
+              votes: true
+            }
+          },
+          votes: {
+            select: {
+              voteType: true
+            }
+          }
+        }
+      });
+
+      if (!stats) {
+        return {
+          commentsCount: 0,
+          voteScore: 0,
+          upvotes: 0,
+          downvotes: 0,
+          views: 0
+        };
+      }
+
+      const upvotes = stats.votes.filter(v => v.voteType === 1).length;
+      const downvotes = stats.votes.filter(v => v.voteType === -1).length;
+      const voteScore = upvotes - downvotes;
+
+      return {
+        commentsCount: stats._count.comments,
+        voteScore,
+        upvotes,
+        downvotes,
+        views: stats.views || 0
+      };
+    } catch (error) {
+      console.error('Error in getPostStats:', error);
+      return {
+        commentsCount: 0,
+        voteScore: 0,
+        upvotes: 0,
+        downvotes: 0,
+        views: 0
+      };
+    }
+  }
+
+  // ===== MÉTODOS AUXILIARES PRIVADOS =====
+
+  // ✅ NUEVO: Include unificado para queries de posts
+  private getPostInclude() {
+    return {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          reputation: true,
+          avatarUrl: true,
+          role: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      channel: {
+        select: {
+          id: true,
+          name: true,
+          isPrivate: true
+        }
+      },
+      deletedByUser: { // ✅ NUEVO: Información del moderador que ocultó el post
+        select: {
+          id: true,
+          username: true,
+          role: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      _count: {
+        select: {
+          comments: true,
+          votes: true
+        }
+      },
+      votes: true
+    };
+  }
+
+  // ✅ ACTUALIZADO: buildWhereClause para soportar filtros de moderación
   private buildWhereClause(filters?: PostFilters): any {
     const where: any = {};
 
@@ -307,6 +323,19 @@ export class PrismaPostDatasource implements PostDatasource {
 
     if (filters?.authorId) {
       where.authorId = filters.authorId;
+    }
+
+    // ✅ AGREGAR FILTROS DE MODERACIÓN
+    if (filters?.isHidden !== undefined) {
+      where.isHidden = filters.isHidden;
+    }
+
+    if (filters?.isLocked !== undefined) {
+      where.isLocked = filters.isLocked;
+    }
+
+    if (filters?.isPinned !== undefined) {
+      where.isPinned = filters.isPinned;
     }
 
     if (filters?.search) {
@@ -319,7 +348,7 @@ export class PrismaPostDatasource implements PostDatasource {
     return where;
   }
 
-   private buildOrderBy(pagination?: PaginationOptions): any {
+  private buildOrderBy(pagination?: PaginationOptions): any {
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
 
@@ -328,7 +357,12 @@ export class PrismaPostDatasource implements PostDatasource {
       'createdAt': { createdAt: sortOrder },
       'updatedAt': { updatedAt: sortOrder },
       'title': { title: sortOrder },
-      'views': { views: sortOrder }, // ✅ AGREGAR ORDENAMIENTO POR VIEWS
+      'views': { views: sortOrder },
+      'author': { 
+        author: { 
+          username: sortOrder 
+        } 
+      },
       'voteScore': { 
         votes: {
           _count: sortOrder

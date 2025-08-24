@@ -1,4 +1,4 @@
-// src/presentation/routes/moderation.routes.ts
+// src/presentation/routes/moderation.routes.ts - COMPLETO Y CORREGIDO
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
@@ -34,16 +34,38 @@ export class ModerationRoutes {
 
     // ===== GESTIÓN DE COMENTARIOS MODERADOS =====
     
-    // ✅ NUEVO: GET /api/moderation/comments - Listar comentarios moderados (admin/moderator)
+    // GET /api/moderation/comments - Listar comentarios moderados (admin/moderator)
     router.get('/comments',
       RoleMiddleware.requireRole(['admin', 'moderator']),
       deps.controllers.moderationController.getComments.bind(deps.controllers.moderationController)
     );
 
-    // ✅ NUEVO: GET /api/moderation/stats - Estadísticas de moderación (admin/moderator)
+    // ===== GESTIÓN DE POSTS MODERADOS (AGREGAR ESTAS RUTAS) =====
+    
+    // ✅ GET /api/moderation/posts - Listar posts moderados (admin/moderator)
+    router.get('/posts',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getPostsList.bind(deps.controllers.moderationController) // ✅ NOMBRE CORREGIDO
+    );
+
+    // ✅ GET /api/moderation/posts/stats - Estadísticas de moderación de posts (admin/moderator)
+    router.get('/posts/stats',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getPostModerationStats.bind(deps.controllers.moderationController)
+    );
+
+    // ===== ESTADÍSTICAS GENERALES =====
+    
+    // GET /api/moderation/stats - Estadísticas generales de moderación (admin/moderator)
     router.get('/stats',
       RoleMiddleware.requireRole(['admin', 'moderator']),
       deps.controllers.moderationController.getStats.bind(deps.controllers.moderationController)
+    );
+
+    // ✅ GET /api/moderation/stats/comprehensive - Estadísticas completas (admin/moderator)
+    router.get('/stats/comprehensive',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getComprehensiveStats.bind(deps.controllers.moderationController)
     );
 
     return router;

@@ -13,20 +13,28 @@ export interface UpdatePostDto {
   content?: string;
   isLocked?: boolean;
   isPinned?: boolean;
+  views?: number;
+  // ✅ AGREGAR CAMPOS DE MODERACIÓN
+  isHidden?: boolean;
+  deletedBy?: number | null;
+  deletionReason?: string | null;
+  updatedAt?: Date;
 }
 
 export interface PostFilters {
   channelId?: number;
   authorId?: number;
+  search?: string;
+  // ✅ AGREGAR FILTROS DE MODERACIÓN
+  isHidden?: boolean;
   isLocked?: boolean;
   isPinned?: boolean;
-  search?: string;
 }
 
 export interface PaginationOptions {
-  page: number;
-  limit: number;
-  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'voteScore';
+  page?: number;
+  limit?: number;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'voteScore' | 'views' | 'author'; // ✅ AGREGAR 'views' y 'author'
   sortOrder?: 'asc' | 'desc';
 }
 

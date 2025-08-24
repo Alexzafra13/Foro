@@ -41,6 +41,7 @@ import { UnbanUser } from "../domain/use-cases/moderation/unban-user.use-case";
 import { GetBannedUsers } from "../domain/use-cases/moderation/get-banned-users.use-case";
 import { GetModeratedComments } from "../domain/use-cases/moderation/get-moderated-comments.use-case";
 import { GetModerationStats } from "../domain/use-cases/moderation/get-moderation-stats.use-case";
+import { GetModeratedPosts } from "../domain/use-cases/moderation/get-moderated-posts.use-case";
 
 // Use Cases - Notifications
 import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
@@ -225,6 +226,11 @@ const getModerationStats = new GetModerationStats(
   userRepository
 );
 
+  const getModeratedPosts = new GetModeratedPosts(
+      postRepository,
+      userRepository
+    );
+
 
     // ===== USE CASES - NOTIFICATIONS =====
     const createNotification = new CreateNotification(
@@ -362,13 +368,16 @@ const getModerationStats = new GetModerationStats(
     // ===== CONTROLLERS =====
     const authController = new AuthController(registerUser, loginUser);
 
-    const postController = new PostController(
+  const postController = new PostController(
       createPost,
       getPosts,
       getPostDetail,
       updatePost,
       deletePost,
-      trackPostView
+      trackPostView,        // ✅ AGREGAR (argumento 6)
+      postRepository,       // ✅ MOVER (argumento 7)
+      userRepository,       // ✅ MOVER (argumento 8)
+      createNotification    // ✅ AGREGAR (argumento 9)
     );
 
     const commentController = new CommentController(
@@ -425,12 +434,12 @@ const getModerationStats = new GetModerationStats(
     );
 
    const moderationController = new ModerationController(
-  banUser,
-  unbanUser,
-  getBannedUsers,
-  // ✅ NUEVAS DEPENDENCIAS
-  getModeratedComments,
-  getModerationStats
+ banUser,
+      unbanUser,
+      getBannedUsers,
+      getModeratedComments,
+      getModerationStats,
+      getModeratedPosts 
 );
 
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES

@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
 import { EmailVerificationMiddleware } from '../middlewares/email-verification.middleware';
+import { RoleMiddleware } from '../middlewares/role.middleware';
 
 export class PostRoutes {
   static async getRoutes(): Promise<Router> {
@@ -80,6 +81,25 @@ export class PostRoutes {
       EmailVerificationMiddleware.requireEmailVerified, // ← NUEVO
       deps.controllers.voteController.votePost.bind(deps.controllers.voteController)
     );
+
+    // ===== RUTAS DE MODERACIÓN DE POSTS =====
+    
+    // 🚫 OCULTAR post por moderación → /api/posts/:id/hide (solo admin/moderator)
+    router.post('/:id/hide',
+      AuthMiddleware.validateToken,
+      EmailVerificationMiddleware.requireEmailVerified,
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.postController.hideByModeration.bind(deps.controllers.postController)
+    );
+
+    // 👁️ MOSTRAR post oculto → /api/posts/:id/unhide (solo admin/moderator)
+    router.post('/:id/unhide',
+      AuthMiddleware.validateToken,
+      EmailVerificationMiddleware.requireEmailVerified,
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.postController.unhideByModeration.bind(deps.controllers.postController)
+    );
+
    
     return router;
   }

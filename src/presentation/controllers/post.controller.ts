@@ -1,4 +1,4 @@
-// src/presentation/controllers/post.controller.ts - COMPLETO CON TRACKING DE VISTAS
+// src/presentation/controllers/post.controller.ts - COMPLETO CON TRACKING DE VISTAS Y MODERACIÓN
 import { Request, Response } from 'express';
 import { CreatePost } from '../../domain/use-cases/posts/create-post.use-case';
 import { GetPosts } from '../../domain/use-cases/posts/get-posts.use-case';
@@ -6,6 +6,9 @@ import { GetPostDetail } from '../../domain/use-cases/posts/get-post-detail.use-
 import { UpdatePost } from '../../domain/use-cases/posts/update-post.use-case';
 import { DeletePost } from '../../domain/use-cases/posts/delete-post.use-case';
 import { TrackPostView } from '../../domain/use-cases/post-views/track-post-view.use-case';
+import { CreateNotification } from '../../domain/use-cases/notifications/create-notification.use-case';
+import { PostRepository } from '../../domain/repositories/post.repository';
+import { UserRepository } from '../../domain/repositories/user.repository';
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class PostController {
@@ -15,7 +18,10 @@ export class PostController {
     private readonly getPostDetail: GetPostDetail,
     private readonly updatePost: UpdatePost,
     private readonly deletePost: DeletePost,
-    private readonly trackPostView: TrackPostView // ✅ NUEVO
+    private readonly trackPostView: TrackPostView,
+    private readonly postRepository: PostRepository, // ✅ AGREGAR PARA MODERACIÓN
+    private readonly userRepository: UserRepository, // ✅ AGREGAR PARA MODERACIÓN
+    private readonly createNotification: CreateNotification // ✅ AGREGAR PARA NOTIFICACIONES
   ) {}
 
   // POST /api/posts
@@ -118,7 +124,7 @@ export class PostController {
       }
     }
 
-  // ✅ NUEVO: POST /api/posts/:id/track-view - Endpoint específico para trackear vistas
+  // ✅ POST /api/posts/:id/track-view - Endpoint específico para trackear vistas
   async trackView(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.id);
@@ -215,7 +221,7 @@ export class PostController {
     }
   }
 
-  // ✅ NUEVO: Endpoint específico para obtener estadísticas de vistas
+  // ✅ GET /api/posts/:id/view-stats - Endpoint específico para obtener estadísticas de vistas
   async getViewStats(req: Request, res: Response) {
     try {
       const postId = parseInt(req.params.id);
@@ -250,7 +256,220 @@ export class PostController {
     }
   }
 
-  // Métodos auxiliares privados
+  // ===== MÉTODOS DE MODERACIÓN (NUEVOS) =====
+
+  // ✅ POST /api/posts/:id/hide - OCULTAR POST POR MODERACIÓN
+  async hideByModeration(req: Request, res: Response) {
+    try {
+      const postId = parseInt(req.params.id);
+      const moderatorId = req.user?.userId!;
+      const { reason } = req.body;
+
+      console.log(`🔍 Attempting to hide post ${postId} by moderator ${moderatorId}`);
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
+      // Verificar que el post existe
+      const post = await this.postRepository.findById(postId);
+      if (!post) {
+        return res.status(404).json({
+          success: false,
+          error: 'Post not found',
+          code: 'POST_NOT_FOUND'
+        });
+      }
+
+      // Verificar permisos del moderador
+      const moderator = await this.userRepository.findById(moderatorId);
+      if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions for moderation',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        });
+      }
+
+      // Verificar que no está intentando moderar su propio post
+      if (post.isAuthor(moderatorId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot moderate your own posts',
+          code: 'CANNOT_MODERATE_OWN_POST'
+        });
+      }
+
+      // Verificar que el post no está ya oculto
+      if (post.isHidden) {
+        return res.status(400).json({
+          success: false,
+          error: 'Post is already hidden',
+          code: 'POST_ALREADY_HIDDEN'
+        });
+      }
+
+      console.log(`🔄 Hiding post ${postId}...`);
+
+      // Ocultar post
+      const updatedPost = await this.postRepository.updateById(postId, {
+        isHidden: true,
+        deletedBy: moderatorId,
+        deletionReason: reason || 'moderation',
+        updatedAt: new Date()
+      });
+
+      console.log(`✅ Post ${postId} hidden successfully`);
+
+      // Enviar notificación al autor del post
+      if (post.authorId && post.authorId !== moderatorId) {
+        try {
+          const notificationDto = CreateNotification.forModeration(
+            post.authorId,
+            'post_hidden',
+            moderator.username,
+            undefined, // commentId
+            post.id    // postId
+          );
+          
+          await this.createNotification.execute(notificationDto);
+          console.log(`📬 Moderation notification sent to user ${post.authorId}`);
+        } catch (notifError) {
+          console.error('Failed to send moderation notification:', notifError);
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: updatedPost.id,
+          isHidden: true,
+          moderatedBy: {
+            id: moderator.id,
+            username: moderator.username,
+            role: moderator.role!.name
+          },
+          moderatedAt: new Date()
+        },
+        message: 'Post hidden by moderation'
+      });
+    } catch (error) {
+      console.error('❌ Error in hideByModeration:', error);
+      this.handleModerationError(error, res, 'Error hiding post');
+    }
+  }
+
+  // ✅ POST /api/posts/:id/unhide - MOSTRAR POST OCULTO
+  async unhideByModeration(req: Request, res: Response) {
+    try {
+      const postId = parseInt(req.params.id);
+      const moderatorId = req.user?.userId!;
+      const { reason } = req.body;
+
+      console.log(`🔍 Attempting to unhide post ${postId} by moderator ${moderatorId}`);
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid post ID',
+          code: 'INVALID_POST_ID'
+        });
+      }
+
+      // Verificar que el post existe
+      const post = await this.postRepository.findById(postId);
+      if (!post) {
+        return res.status(404).json({
+          success: false,
+          error: 'Post not found',
+          code: 'POST_NOT_FOUND'
+        });
+      }
+
+      // Verificar permisos del moderador
+      const moderator = await this.userRepository.findById(moderatorId);
+      if (!moderator || !['admin', 'moderator'].includes(moderator.role!.name)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Insufficient permissions for moderation',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        });
+      }
+
+      // Verificar que no está intentando restaurar su propio post
+      if (post.isAuthor(moderatorId)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot moderate your own posts',
+          code: 'CANNOT_MODERATE_OWN_POST'
+        });
+      }
+
+      // Verificar que el post está realmente oculto
+      if (!post.isHidden) {
+        return res.status(400).json({
+          success: false,
+          error: 'Post is not hidden',
+          code: 'POST_NOT_HIDDEN'
+        });
+      }
+
+      console.log(`🔄 Restoring post ${postId}...`);
+
+      // Restaurar post
+      const updatedPost = await this.postRepository.updateById(postId, {
+        isHidden: false,
+        deletedBy: null,
+        deletionReason: null,
+        updatedAt: new Date()
+      });
+
+      console.log(`✅ Post ${postId} restored successfully`);
+
+      // Enviar notificación al autor del post
+      if (post.authorId && post.authorId !== moderatorId) {
+        try {
+          const notificationDto = CreateNotification.forModeration(
+            post.authorId,
+            'post_restored',
+            moderator.username,
+            undefined, // commentId
+            post.id    // postId
+          );
+          
+          await this.createNotification.execute(notificationDto);
+          console.log(`📬 Restoration notification sent to user ${post.authorId}`);
+        } catch (notifError) {
+          console.error('Failed to send restoration notification:', notifError);
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: updatedPost.id,
+          isHidden: false,
+          restoredBy: {
+            id: moderator.id,
+            username: moderator.username,
+            role: moderator.role!.name
+          },
+          restoredAt: new Date()
+        },
+        message: 'Post restored by moderation'
+      });
+    } catch (error) {
+      console.error('❌ Error in unhideByModeration:', error);
+      this.handleModerationError(error, res, 'Error restoring post');
+    }
+  }
+
+  // ===== MÉTODOS AUXILIARES PRIVADOS =====
+
   private getClientIP(req: Request): string {
     return (
       (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
@@ -258,6 +477,44 @@ export class PostController {
       req.socket.remoteAddress ||
       'unknown'
     );
+  }
+
+  // ✅ MANEJO DE ERRORES DE MODERACIÓN
+  private handleModerationError(error: any, res: Response, defaultMessage: string) {
+    if (error.message.includes('already hidden')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Post is already hidden',
+        code: 'POST_ALREADY_HIDDEN'
+      });
+    }
+
+    if (error.message.includes('not hidden')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Post is not hidden',
+        code: 'POST_NOT_HIDDEN'
+      });
+    }
+
+    if (error.message.includes('moderate your own')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot moderate your own posts',
+        code: 'CANNOT_MODERATE_OWN_POST'
+      });
+    }
+
+    if (error.message.includes('Insufficient permissions')) {
+      return res.status(403).json({
+        success: false,
+        error: 'Insufficient permissions for moderation',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    // Usar el manejo de errores existente como fallback
+    return this.handleError(error, res, defaultMessage);
   }
 
   private handleError(error: unknown, res: Response, defaultMessage: string) {
