@@ -1,4 +1,4 @@
-// src/domain/use-cases/moderation/get-moderated-posts.use-case.ts - CREAR ESTE ARCHIVO
+// src/domain/use-cases/moderation/get-moderated-posts.use-case.ts - CORREGIDO PARA OBTENER MODERADOR REAL
 
 import { PostRepository } from '../../repositories/post.repository';
 import { UserRepository } from '../../repositories/user.repository';
@@ -8,7 +8,7 @@ export interface GetModeratedPostsRequestDto {
   status?: 'hidden' | 'visible' | 'all';
   page?: number;
   limit?: number;
-  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'views' | 'author'; // ✅ AGREGAR 'author'
+  sortBy?: 'createdAt' | 'updatedAt' | 'title' | 'views' | 'author';
   sortOrder?: 'asc' | 'desc';
   search?: string;
   channelId?: number;
@@ -118,56 +118,79 @@ export class GetModeratedPosts implements GetModeratedPostsUseCase {
     // Obtener posts
     const result = await this.postRepository.findMany(filters, pagination);
 
-    // Formatear posts con información completa
-    const formattedPosts: ModeratedPostDto[] = result.data.map(post => {
-      let moderatedBy = null;
-      if (post.deletedBy) {
-        // En un caso real, buscarías el usuario, pero por simplicidad:
-        moderatedBy = {
-          id: post.deletedBy,
-          username: 'Moderador',
-          role: 'moderator'
+    // ✅ CORREGIDO: Formatear posts con información completa del moderador real
+    const formattedPosts: ModeratedPostDto[] = await Promise.all(
+      result.data.map(async (post) => {
+        let moderatedBy = null;
+        
+        // ✅ BUSCAR EL USUARIO REAL DEL MODERADOR
+        if (post.deletedBy) {
+          try {
+            const moderatorUser = await this.userRepository.findById(post.deletedBy);
+            if (moderatorUser && moderatorUser.role) {
+              moderatedBy = {
+                id: moderatorUser.id,
+                username: moderatorUser.username,
+                role: moderatorUser.role.name
+              };
+            } else {
+              // Fallback si el usuario fue eliminado o no tiene rol
+              moderatedBy = {
+                id: post.deletedBy,
+                username: 'Usuario eliminado',
+                role: 'unknown'
+              };
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch moderator ${post.deletedBy}:`, error);
+            // Fallback en caso de error
+            moderatedBy = {
+              id: post.deletedBy,
+              username: 'Moderador',
+              role: 'moderator'
+            };
+          }
+        }
+
+        return {
+          id: post.id,
+          channelId: post.channelId,
+          title: post.title.length > 100 ? post.title.substring(0, 100) + '...' : post.title,
+          content: post.content.length > 200 ? post.content.substring(0, 200) + '...' : post.content,
+          views: post.views,
+          isHidden: post.isHidden,
+          isPinned: post.isPinned,
+          isLocked: post.isLocked,
+          createdAt: post.createdAt,
+          updatedAt: post.updatedAt,
+
+          author: post.author ? {
+            id: post.author.id,
+            username: post.author.username,
+            role: post.author.role?.name || 'user'
+          } : null,
+
+          channel: {
+            id: post.channel?.id || post.channelId,
+            name: post.channel?.name || 'Canal desconocido'
+          },
+
+          moderatedBy, // ✅ AHORA CONTIENE EL USUARIO REAL
+
+          stats: {
+            commentsCount: post._count?.comments || 0,
+            voteScore: post.voteScore || 0
+          },
+
+          moderationInfo: post.isHidden ? {
+            reason: post.deletionReason,
+            moderatedAt: post.updatedAt
+          } : undefined
         };
-      }
+      })
+    );
 
-      return {
-        id: post.id,
-        channelId: post.channelId,
-        title: post.title.length > 100 ? post.title.substring(0, 100) + '...' : post.title,
-        content: post.content.length > 200 ? post.content.substring(0, 200) + '...' : post.content,
-        views: post.views,
-        isHidden: post.isHidden,
-        isPinned: post.isPinned,
-        isLocked: post.isLocked,
-        createdAt: post.createdAt,
-        updatedAt: post.updatedAt,
-
-        author: post.author ? {
-          id: post.author.id,
-          username: post.author.username,
-          role: post.author.role?.name || 'user'
-        } : null,
-
-        channel: {
-          id: post.channel?.id || post.channelId,
-          name: post.channel?.name || 'Canal desconocido'
-        },
-
-        moderatedBy,
-
-        stats: {
-          commentsCount: post._count?.comments || 0,
-          voteScore: post.voteScore || 0
-        },
-
-        moderationInfo: post.isHidden ? {
-          reason: post.deletionReason,
-          moderatedAt: post.updatedAt
-        } : undefined
-      };
-    });
-
-    // Obtener estadísticas de resumen (simplificado)
+    // Obtener estadísticas de resumen
     const summary = {
       totalHidden: result.data.filter(p => p.isHidden).length,
       totalVisible: result.data.filter(p => !p.isHidden).length,
