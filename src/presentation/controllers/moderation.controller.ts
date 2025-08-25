@@ -307,6 +307,49 @@ export class ModerationController {
 
   // ===== NUEVOS MÉTODOS PARA SANCIONES (CON NOMBRES CORREGIDOS) =====
 
+  // GET /api/moderation/sanctions/stats - Estadísticas de sanciones
+  async getSanctionsStats(req: Request, res: Response) {
+    try {
+      const requesterId = req.user?.userId!;
+      const { period = 'all' } = req.query;
+
+      // Por ahora usamos datos mock hasta que se implemente la lógica completa
+      const mockStats = {
+        totalSanctions: 0,
+        activeSanctions: 0,
+        usersWithActiveSanctions: 0,
+        expiredToday: 0,
+        sanctionsByType: {
+          warning: 0,
+          silence: 0,
+          restriction: 0,
+          temp_suspend: 0,
+          permanent_ban: 0,
+          ip_ban: 0
+        },
+        sanctionsBySeverity: {
+          low: 0,
+          medium: 0,
+          high: 0,
+          critical: 0
+        },
+        recentActivity: [],
+        period: period as string,
+        requesterId,
+        generatedAt: new Date()
+      };
+
+      res.json({
+        success: true,
+        data: mockStats,
+        message: `Sanctions statistics retrieved successfully for period: ${period}`
+      });
+
+    } catch (error) {
+      this.handleError(error, res, 'Error retrieving sanctions statistics');
+    }
+  }
+
   // POST /api/moderation/sanctions - Aplicar sanción
   async applySanction(req: Request, res: Response) {
     try {

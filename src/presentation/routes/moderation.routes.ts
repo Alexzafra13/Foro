@@ -70,6 +70,12 @@ export class ModerationRoutes {
 
     // ===== SISTEMA AVANZADO DE SANCIONES =====
     
+    // GET /api/moderation/sanctions/stats - Estadísticas de sanciones (admin/moderator)
+    router.get('/sanctions/stats',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getSanctionsStats.bind(deps.controllers.moderationController)
+    );
+    
     // POST /api/moderation/sanctions - Aplicar sanción (admin/moderator)
     router.post('/sanctions',
       RoleMiddleware.requireRole(['admin', 'moderator']),
