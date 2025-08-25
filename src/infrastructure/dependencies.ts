@@ -1,4 +1,5 @@
-// src/infrastructure/dependencies.ts - COMPLETO CON FIX DE CONEXIONES
+// ===== DEPENDENCIES.TS COMPLETO CON SANCIONES =====
+// src/infrastructure/dependencies.ts - VERSIÓN COMPLETA CON SISTEMA DE SANCIONES
 
 // ✅ IMPORTAR LA INSTANCIA GLOBAL DE PRISMA
 import { prisma } from "./database";
@@ -18,6 +19,8 @@ import { PrismaVoteDatasource } from "./datasources/prisma-vote.datasource";
 import { PrismaCommentVoteDatasource } from "./datasources/prisma-comment-vote.datasource";
 import { PrismaPostViewDatasource } from "./datasources/prisma-post-view.datasource";
 import { PrismaNotificationDatasource } from "./datasources/prisma-notification.datasource";
+// ✅ NUEVO DATASOURCE PARA SANCIONES
+import { PrismaSanctionDatasource } from "./datasources/prisma-sanction.datasource";
 
 // Repositories
 import { UserRepositoryImpl } from "./repositories/user.repository.impl";
@@ -34,21 +37,28 @@ import { VoteRepositoryImpl } from "./repositories/vote.repository.impl";
 import { CommentVoteRepositoryImpl } from "./repositories/comment-vote.repository.impl";
 import { PostViewRepositoryImpl } from "./repositories/post-view.repository.impl";
 import { NotificationRepositoryImpl } from "./repositories/notification.repository.impl";
+// ✅ NUEVO REPOSITORY PARA SANCIONES
+import { SanctionRepositoryImpl } from "./repositories/sanction.repository.impl";
 
-// Use Cases - Moderation
+// Use Cases - Moderation (EXISTENTES + NUEVOS)
 import { BanUser } from "../domain/use-cases/moderation/ban-user.use-case";
 import { UnbanUser } from "../domain/use-cases/moderation/unban-user.use-case";
 import { GetBannedUsers } from "../domain/use-cases/moderation/get-banned-users.use-case";
 import { GetModeratedComments } from "../domain/use-cases/moderation/get-moderated-comments.use-case";
 import { GetModerationStats } from "../domain/use-cases/moderation/get-moderation-stats.use-case";
 import { GetModeratedPosts } from "../domain/use-cases/moderation/get-moderated-posts.use-case";
+// ✅ NUEVOS USE CASES PARA SANCIONES
+import { ApplySanction } from "../domain/use-cases/moderation/apply-sanction.use-case";
+import { RevokeSanction } from "../domain/use-cases/moderation/revoke-sanction.use-case";
+import { GetUserSanctions } from "../domain/use-cases/moderation/get-user-sanctions.use-case";
+import { GetSanctionsHistory } from "../domain/use-cases/moderation/get-sanctions-history.use-case";
 
 // Use Cases - Notifications
 import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
 import { GetUserNotifications } from "../domain/use-cases/notifications/get-user-notifications.use-case";
 import { MarkNotificationAsRead } from "../domain/use-cases/notifications/mark-notification-as-read.use-case";
 import { MarkAllAsRead } from "../domain/use-cases/notifications/mark-all-as-read.use-case";
-import { DeleteNotification } from '@/domain/use-cases/notifications/delete-notification.use-case';
+import { DeleteNotification } from '../domain/use-cases/notifications/delete-notification.use-case';
 
 // Use Cases - Auth
 import { RegisterUser } from "../domain/use-cases/auth/register-user.use-case";
@@ -144,107 +154,83 @@ export class Dependencies {
 
     console.log('🔧 Creating dependencies instance...');
 
-    // ✅ USAR LA INSTANCIA GLOBAL DE PRISMA EN LUGAR DE new PrismaClient()
-    // Database connection is handled by the global prisma instance
-
     // ===== DATASOURCES =====
     const userDatasource = new PrismaUserDatasource(prisma);
     const postDatasource = new PrismaPostDatasource(prisma);
     const inviteCodeDatasource = new PrismaInviteCodeDatasource(prisma);
-    const emailVerificationTokenDatasource =
-      new PrismaEmailVerificationTokenDatasource(prisma);
+    const emailVerificationTokenDatasource = new PrismaEmailVerificationTokenDatasource(prisma);
     const commentDatasource = new PrismaCommentDatasource(prisma);
     const categoryDatasource = new PrismaCategoryDatasource(prisma);
     const channelDatasource = new PrismaChannelDatasource(prisma);
     const userSettingsDatasource = new PrismaUserSettingsDatasource(prisma);
     const activityLogDatasource = new PrismaActivityLogDatasource(prisma);
-    const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(
-      prisma
-    );
+    const passwordResetTokenDatasource = new PrismaPasswordResetTokenDatasource(prisma);
     const voteDatasource = new PrismaVoteDatasource(prisma);
     const commentVoteDatasource = new PrismaCommentVoteDatasource(prisma);
     const postViewDatasource = new PrismaPostViewDatasource(prisma);
     const notificationDatasource = new PrismaNotificationDatasource(prisma);
+    // ✅ NUEVO DATASOURCE PARA SANCIONES
+    const sanctionDatasource = new PrismaSanctionDatasource(prisma);
 
     // ===== REPOSITORIES =====
     const userRepository = new UserRepositoryImpl(userDatasource);
     const postRepository = new PostRepositoryImpl(postDatasource);
-    const inviteCodeRepository = new InviteCodeRepositoryImpl(
-      inviteCodeDatasource
-    );
-    const emailVerificationTokenRepository =
-      new EmailVerificationTokenRepositoryImpl(
-        emailVerificationTokenDatasource
-      );
+    const inviteCodeRepository = new InviteCodeRepositoryImpl(inviteCodeDatasource);
+    const emailVerificationTokenRepository = new EmailVerificationTokenRepositoryImpl(emailVerificationTokenDatasource);
     const commentRepository = new CommentRepositoryImpl(commentDatasource);
     const categoryRepository = new CategoryRepositoryImpl(categoryDatasource);
     const channelRepository = new ChannelRepositoryImpl(channelDatasource);
-    const userSettingsRepository = new UserSettingsRepositoryImpl(
-      userSettingsDatasource
-    );
-    const activityLogRepository = new ActivityLogRepositoryImpl(
-      activityLogDatasource
-    );
-    const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(
-      passwordResetTokenDatasource
-    );
+    const userSettingsRepository = new UserSettingsRepositoryImpl(userSettingsDatasource);
+    const activityLogRepository = new ActivityLogRepositoryImpl(activityLogDatasource);
+    const passwordResetTokenRepository = new PasswordResetTokenRepositoryImpl(passwordResetTokenDatasource);
     const voteRepository = new VoteRepositoryImpl(voteDatasource);
-    const commentVoteRepository = new CommentVoteRepositoryImpl(
-      commentVoteDatasource
-    );
+    const commentVoteRepository = new CommentVoteRepositoryImpl(commentVoteDatasource);
     const postViewRepository = new PostViewRepositoryImpl(postViewDatasource);
-    const notificationRepository = new NotificationRepositoryImpl(
-      notificationDatasource
-    );
+    const notificationRepository = new NotificationRepositoryImpl(notificationDatasource);
+    // ✅ NUEVO REPOSITORY PARA SANCIONES
+    const sanctionRepository = new SanctionRepositoryImpl(sanctionDatasource);
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
 
-    // ===== USE CASES - MODERATION =====
-const banUser = new BanUser(
-  userRepository,
-  activityLogRepository,
-  notificationRepository
-);
+    // ===== USE CASES - MODERATION (EXISTENTES) =====
+    const banUser = new BanUser(userRepository, activityLogRepository, notificationRepository);
+    const unbanUser = new UnbanUser(userRepository, activityLogRepository, notificationRepository);
+    const getBannedUsers = new GetBannedUsers(userRepository);
+    const getModeratedComments = new GetModeratedComments(commentRepository, userRepository);
+    const getModerationStats = new GetModerationStats(commentRepository, userRepository);
+    const getModeratedPosts = new GetModeratedPosts(postRepository, userRepository);
 
-const unbanUser = new UnbanUser(
-  userRepository,
-  activityLogRepository,
-  notificationRepository
-);
-
-const getBannedUsers = new GetBannedUsers(userRepository);
-
-// ✅ AGREGAR ESTOS NUEVOS USE CASES:
-const getModeratedComments = new GetModeratedComments(
-  commentRepository,
-  userRepository
-);
-
-const getModerationStats = new GetModerationStats(
-  commentRepository,
-  userRepository
-);
-
-  const getModeratedPosts = new GetModeratedPosts(
-      postRepository,
-      userRepository
+    // ✅ NUEVOS USE CASES PARA SANCIONES
+    const applySanction = new ApplySanction(
+      userRepository,
+      sanctionRepository,
+      activityLogRepository,
+      notificationRepository
     );
 
+    const revokeSanction = new RevokeSanction(
+      userRepository,
+      sanctionRepository,
+      activityLogRepository,
+      notificationRepository
+    );
+
+    const getUserSanctions = new GetUserSanctions(
+      userRepository,
+      sanctionRepository
+    );
+
+    const getSanctionsHistory = new GetSanctionsHistory(
+      userRepository,
+      sanctionRepository
+    );
 
     // ===== USE CASES - NOTIFICATIONS =====
-    const createNotification = new CreateNotification(
-      notificationRepository,
-      userRepository
-    );
-    const getUserNotifications = new GetUserNotifications(
-      notificationRepository
-    );
-    const markNotificationAsRead = new MarkNotificationAsRead(
-      notificationRepository
-    );
+    const createNotification = new CreateNotification(notificationRepository, userRepository);
+    const getUserNotifications = new GetUserNotifications(notificationRepository);
+    const markNotificationAsRead = new MarkNotificationAsRead(notificationRepository);
     const markAllAsRead = new MarkAllAsRead(notificationRepository);
-
     const deleteNotification = new DeleteNotification(notificationRepository);
 
     // ===== USE CASES - AUTH =====
@@ -254,18 +240,10 @@ const getModerationStats = new GetModerationStats(
       emailAdapter
     );
 
-    const registerUser = new RegisterUser(
-      userRepository,
-      inviteCodeRepository,
-      sendVerificationEmail
-    );
-
+    const registerUser = new RegisterUser(userRepository, inviteCodeRepository, sendVerificationEmail);
     const loginUser = new LoginUser(userRepository);
 
-    const verifyEmail = new VerifyEmail(
-      emailVerificationTokenRepository,
-      userRepository
-    );
+    const verifyEmail = new VerifyEmail(emailVerificationTokenRepository, userRepository);
 
     const requestPasswordReset = new RequestPasswordReset(
       userRepository,
@@ -287,21 +265,10 @@ const getModerationStats = new GetModerationStats(
       commentRepository
     );
 
-    const updateProfile = new UpdateProfile(
-      userRepository,
-      activityLogRepository
-    );
+    const updateProfile = new UpdateProfile(userRepository, activityLogRepository);
+    const changePassword = new ChangePassword(userRepository, activityLogRepository);
 
-    const changePassword = new ChangePassword(
-      userRepository,
-      activityLogRepository
-    );
-
-    const getUserSettings = new GetUserSettings(
-      userSettingsRepository,
-      userRepository
-    );
-
+    const getUserSettings = new GetUserSettings(userSettingsRepository, userRepository);
     const updateUserSettings = new UpdateUserSettings(
       userSettingsRepository,
       userRepository,
@@ -328,56 +295,33 @@ const getModerationStats = new GetModerationStats(
     const deleteComment = new DeleteComment(commentRepository, userRepository);
 
     // ===== USE CASES - VOTES =====
-    const votePost = new VotePost(
-      voteRepository,
-      postRepository,
-      userRepository
-    );
-    const voteComment = new VoteComment(
-      commentVoteRepository,
-      commentRepository,
-      userRepository
-    );
+    const votePost = new VotePost(voteRepository, postRepository, userRepository);
+    const voteComment = new VoteComment(commentVoteRepository, commentRepository, userRepository);
 
     // ===== USE CASES - CATEGORIES & CHANNELS =====
-    const getCategories = new GetCategories(
-      categoryRepository,
-      channelRepository
-    );
+    const getCategories = new GetCategories(categoryRepository, channelRepository);
     const getChannel = new GetChannel(channelRepository);
 
     // ===== USE CASES - INVITES =====
-    const generateInviteCode = new GenerateInviteCode(
-      inviteCodeRepository,
-      userRepository
-    );
+    const generateInviteCode = new GenerateInviteCode(inviteCodeRepository, userRepository);
     const validateInviteCode = new ValidateInviteCode(inviteCodeRepository);
-    const getInviteCodes = new GetInviteCodes(
-      inviteCodeRepository,
-      userRepository
-    );
-    const deleteInviteCode = new DeleteInviteCode(
-      inviteCodeRepository,
-      userRepository
-    );
-    const getInviteStats = new GetInviteStats(
-      inviteCodeRepository,
-      userRepository
-    );
+    const getInviteCodes = new GetInviteCodes(inviteCodeRepository, userRepository);
+    const deleteInviteCode = new DeleteInviteCode(inviteCodeRepository, userRepository);
+    const getInviteStats = new GetInviteStats(inviteCodeRepository, userRepository);
 
     // ===== CONTROLLERS =====
     const authController = new AuthController(registerUser, loginUser);
 
-  const postController = new PostController(
+    const postController = new PostController(
       createPost,
       getPosts,
       getPostDetail,
       updatePost,
       deletePost,
-      trackPostView,        // ✅ AGREGAR (argumento 6)
-      postRepository,       // ✅ MOVER (argumento 7)
-      userRepository,       // ✅ MOVER (argumento 8)
-      createNotification    // ✅ AGREGAR (argumento 9)
+      trackPostView,
+      postRepository,
+      userRepository,
+      createNotification
     );
 
     const commentController = new CommentController(
@@ -386,8 +330,8 @@ const getModerationStats = new GetModerationStats(
       updateComment,
       deleteComment,
       commentRepository,
-  userRepository,
-  createNotification
+      userRepository,
+      createNotification
     );
 
     const inviteController = new InviteController(
@@ -407,22 +351,9 @@ const getModerationStats = new GetModerationStats(
     const categoryController = new CategoryController(getCategories);
     const channelController = new ChannelController(getChannel);
 
-    const profileController = new ProfileController(
-      getProfile,
-      updateProfile,
-      changePassword
-    );
-
-    const settingsController = new SettingsController(
-      getUserSettings,
-      updateUserSettings
-    );
-
-    const passwordResetController = new PasswordResetController(
-      requestPasswordReset,
-      resetPassword
-    );
-
+    const profileController = new ProfileController(getProfile, updateProfile, changePassword);
+    const settingsController = new SettingsController(getUserSettings, updateUserSettings);
+    const passwordResetController = new PasswordResetController(requestPasswordReset, resetPassword);
     const voteController = new VoteController(votePost, voteComment);
 
     const notificationController = new NotificationController(
@@ -433,14 +364,21 @@ const getModerationStats = new GetModerationStats(
       deleteNotification
     );
 
-   const moderationController = new ModerationController(
- banUser,
+    // ✅ MODERATION CONTROLLER CON TODAS LAS DEPENDENCIAS (EXISTENTES + NUEVAS)
+    const moderationController = new ModerationController(
+      // Use cases existentes
+      banUser,
       unbanUser,
       getBannedUsers,
       getModeratedComments,
       getModerationStats,
-      getModeratedPosts 
-);
+      getModeratedPosts,
+      // ✅ Nuevos use cases de sanciones
+      applySanction,
+      revokeSanction,
+      getUserSanctions,
+      getSanctionsHistory
+    );
 
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
     const dependencies = new Dependencies(
@@ -460,6 +398,8 @@ const getModerationStats = new GetModerationStats(
         postViewRepository,
         commentVoteRepository,
         notificationRepository,
+        // ✅ NUEVO REPOSITORY
+        sanctionRepository,
       },
 
       // Use Cases
@@ -517,13 +457,21 @@ const getModerationStats = new GetModerationStats(
         getUserNotifications,
         markNotificationAsRead,
         markAllAsRead,
+        deleteNotification,
 
-        // Moderation
+        // Moderation (existentes)
         banUser,
         unbanUser,
         getBannedUsers,
-           getModeratedComments,
-    getModerationStats,
+        getModeratedComments,
+        getModerationStats,
+        getModeratedPosts,
+
+        // ✅ Nuevas sanciones
+        applySanction,
+        revokeSanction,
+        getUserSanctions,
+        getSanctionsHistory,
       },
 
       // Controllers
@@ -540,7 +488,7 @@ const getModerationStats = new GetModerationStats(
         passwordResetController,
         voteController,
         notificationController,
-        moderationController,
+        moderationController, // ✅ Con todas las dependencias nuevas
       }
     );
 
@@ -560,11 +508,9 @@ const getModerationStats = new GetModerationStats(
   static async cleanup(): Promise<void> {
     try {
       if (cachedDependencies) {
-        // Limpiar cache
         cachedDependencies = null;
       }
       
-      // Desconectar Prisma
       await prisma.$disconnect();
       console.log('✅ Dependencies cleanup completed');
     } catch (error) {

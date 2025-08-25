@@ -1,11 +1,7 @@
-import { UserEntity } from '../entities/user.entity';
-import { CreateUserDto } from '../datasources/user.datasource';
+// src/domain/repositories/user.repository.ts - INTERFACE ACTUALIZADA
 
-export interface UserFilters {
-  isBanned?: boolean;
-  roleId?: number;
-  isEmailVerified?: boolean;
-}
+import { UserEntity } from '../entities/user.entity';
+import { CreateUserDto, UserFilters, UpdateUserModerationDto, ModerationStatsDto } from '../datasources/user.datasource';
 
 export interface PaginatedUsersResult {
   data: UserEntity[];
@@ -20,16 +16,25 @@ export interface PaginatedUsersResult {
 }
 
 export abstract class UserRepository {
-  // Métodos existentes
+  // ===== MÉTODOS EXISTENTES =====
   abstract create(createUserDto: CreateUserDto): Promise<UserEntity>;
   abstract findById(id: number): Promise<UserEntity | null>;
   abstract findByEmail(email: string): Promise<UserEntity | null>;
   abstract findByUsername(username: string): Promise<UserEntity | null>;
   abstract updateById(id: number, data: Partial<UserEntity>): Promise<UserEntity>;
   abstract deleteById(id: number): Promise<UserEntity>;
-  
-  // ✅ NUEVOS MÉTODOS PARA SISTEMA DE BAN
   abstract findBannedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult>;
   abstract findByRole(roleName: string): Promise<UserEntity[]>;
   abstract countBannedUsers(): Promise<number>;
+
+  // ✅ NUEVOS MÉTODOS PARA MODERACIÓN AVANZADA
+  abstract updateModerationStatus(id: number, data: UpdateUserModerationDto): Promise<UserEntity>;
+  abstract findSilencedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult>;
+  abstract findUsersByModerationLevel(
+    level: 'clean' | 'warned' | 'restricted' | 'suspended' | 'banned', 
+    pagination: { page: number; limit: number }
+  ): Promise<PaginatedUsersResult>;
+  abstract countUsersByModerationStatus(): Promise<ModerationStatsDto>;
+  abstract findUsersWithActiveWarnings(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult>;
+  abstract cleanExpiredSilences(): Promise<number>;
 }

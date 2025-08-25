@@ -1,4 +1,4 @@
-// src/presentation/routes/moderation.routes.ts - COMPLETO Y CORREGIDO
+// src/presentation/routes/moderation.routes.ts - COMPLETO CON TODAS LAS RUTAS
 import { Router } from 'express';
 import { Dependencies } from '../../infrastructure/dependencies';
 import { AuthMiddleware } from '../middlewares/auth.middleware';
@@ -40,15 +40,15 @@ export class ModerationRoutes {
       deps.controllers.moderationController.getComments.bind(deps.controllers.moderationController)
     );
 
-    // ===== GESTIÓN DE POSTS MODERADOS (AGREGAR ESTAS RUTAS) =====
+    // ===== GESTIÓN DE POSTS MODERADOS =====
     
-    // ✅ GET /api/moderation/posts - Listar posts moderados (admin/moderator)
+    // GET /api/moderation/posts - Listar posts moderados (admin/moderator)
     router.get('/posts',
       RoleMiddleware.requireRole(['admin', 'moderator']),
-      deps.controllers.moderationController.getPostsList.bind(deps.controllers.moderationController) // ✅ NOMBRE CORREGIDO
+      deps.controllers.moderationController.getPostsList.bind(deps.controllers.moderationController)
     );
 
-    // ✅ GET /api/moderation/posts/stats - Estadísticas de moderación de posts (admin/moderator)
+    // GET /api/moderation/posts/stats - Estadísticas de moderación de posts (admin/moderator)
     router.get('/posts/stats',
       RoleMiddleware.requireRole(['admin', 'moderator']),
       deps.controllers.moderationController.getPostModerationStats.bind(deps.controllers.moderationController)
@@ -62,10 +62,36 @@ export class ModerationRoutes {
       deps.controllers.moderationController.getStats.bind(deps.controllers.moderationController)
     );
 
-    // ✅ GET /api/moderation/stats/comprehensive - Estadísticas completas (admin/moderator)
+    // GET /api/moderation/stats/comprehensive - Estadísticas completas (admin/moderator)
     router.get('/stats/comprehensive',
       RoleMiddleware.requireRole(['admin', 'moderator']),
       deps.controllers.moderationController.getComprehensiveStats.bind(deps.controllers.moderationController)
+    );
+
+    // ===== SISTEMA AVANZADO DE SANCIONES =====
+    
+    // POST /api/moderation/sanctions - Aplicar sanción (admin/moderator)
+    router.post('/sanctions',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.applySanction.bind(deps.controllers.moderationController)
+    );
+
+    // POST /api/moderation/sanctions/:id/revoke - Revocar sanción (solo admin)
+    router.post('/sanctions/:id/revoke',
+      RoleMiddleware.requireRole(['admin']),
+      deps.controllers.moderationController.revokeSanction.bind(deps.controllers.moderationController)
+    );
+
+    // GET /api/moderation/users/:id/sanctions - Obtener sanciones de usuario (admin/moderator)
+    router.get('/users/:id/sanctions',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getUserSanctions.bind(deps.controllers.moderationController)
+    );
+
+    // GET /api/moderation/sanctions - Historial de sanciones (admin/moderator)
+    router.get('/sanctions',
+      RoleMiddleware.requireRole(['admin', 'moderator']),
+      deps.controllers.moderationController.getSanctionsHistory.bind(deps.controllers.moderationController)
     );
 
     return router;

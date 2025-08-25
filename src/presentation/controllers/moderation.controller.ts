@@ -1,24 +1,39 @@
-// src/presentation/controllers/moderation.controller.ts - COMPLETO CON POSTS
+// ===== SOLUCIÓN 1: RENOMBRAR PROPIEDADES (RECOMENDADA) =====
+// src/presentation/controllers/moderation.controller.ts
+
 import { Request, Response } from 'express';
+// Use cases existentes
 import { BanUser } from '../../domain/use-cases/moderation/ban-user.use-case';
 import { UnbanUser } from '../../domain/use-cases/moderation/unban-user.use-case';
 import { GetBannedUsers } from '../../domain/use-cases/moderation/get-banned-users.use-case';
 import { GetModeratedComments } from '../../domain/use-cases/moderation/get-moderated-comments.use-case';
 import { GetModerationStats } from '../../domain/use-cases/moderation/get-moderation-stats.use-case';
 import { GetModeratedPosts } from '../../domain/use-cases/moderation/get-moderated-posts.use-case';
+// Nuevos use cases de sanciones
+import { ApplySanction } from '../../domain/use-cases/moderation/apply-sanction.use-case';
+import { RevokeSanction } from '../../domain/use-cases/moderation/revoke-sanction.use-case';
+import { GetUserSanctions } from '../../domain/use-cases/moderation/get-user-sanctions.use-case';
+import { GetSanctionsHistory } from '../../domain/use-cases/moderation/get-sanctions-history.use-case';
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class ModerationController {
   constructor(
+    // Use cases existentes
     private readonly banUser: BanUser,
     private readonly unbanUser: UnbanUser,
     private readonly getBannedUsers: GetBannedUsers,
     private readonly getModeratedComments: GetModeratedComments,
     private readonly getModerationStats: GetModerationStats,
-    private readonly getModeratedPosts: GetModeratedPosts // ✅ NUEVA DEPENDENCIA
+    private readonly getModeratedPosts: GetModeratedPosts,
+    // ✅ RENOMBRAR PROPIEDADES PARA EVITAR CONFLICTO
+    private readonly applySanctionUseCase: ApplySanction,
+    private readonly revokeSanctionUseCase: RevokeSanction,
+    private readonly getUserSanctionsUseCase: GetUserSanctions,
+    private readonly getSanctionsHistoryUseCase: GetSanctionsHistory
   ) {}
 
-  // POST /api/moderation/ban - Banear usuario
+  // ===== MÉTODOS EXISTENTES (SIN CAMBIOS) =====
+
   async ban(req: Request, res: Response) {
     try {
       const { userId, reason } = req.body;
@@ -50,7 +65,6 @@ export class ModerationController {
     }
   }
 
-  // POST /api/moderation/unban - Desbanear usuario
   async unban(req: Request, res: Response) {
     try {
       const { userId } = req.body;
@@ -81,7 +95,6 @@ export class ModerationController {
     }
   }
 
-  // GET /api/moderation/banned-users - Listar usuarios baneados
   async getBanned(req: Request, res: Response) {
     try {
       const requesterId = req.user?.userId!;
@@ -104,9 +117,6 @@ export class ModerationController {
     }
   }
 
-  // ===== GESTIÓN DE COMENTARIOS MODERADOS =====
-
-  // GET /api/moderation/comments - Listar comentarios moderados
   async getComments(req: Request, res: Response) {
     try {
       const requesterId = req.user?.userId!;
@@ -137,10 +147,7 @@ export class ModerationController {
     }
   }
 
-  // ===== GESTIÓN DE POSTS MODERADOS (NUEVOS) =====
-
-  // ✅ GET /api/moderation/posts - Listar posts moderados
-  async getPostsList(req: Request, res: Response) { // ✅ CAMBIAR NOMBRE DEL MÉTODO
+  async getPostsList(req: Request, res: Response) {
     try {
       const moderatorId = req.user?.userId!;
       
@@ -154,16 +161,12 @@ export class ModerationController {
         channelId
       } = req.query;
 
-      console.log(`🔍 Getting moderated posts for moderator ${moderatorId}:`, {
-        status, page, limit, sortBy, sortOrder, search, channelId
-      });
-
       const result = await this.getModeratedPosts.execute({
         moderatorId,
         status: status as 'hidden' | 'visible' | 'all',
         page: parseInt(page as string) || 1,
         limit: parseInt(limit as string) || 20,
-        sortBy: sortBy as 'createdAt' | 'updatedAt' | 'title' | 'views' | 'author', // ✅ AGREGAR 'author'
+        sortBy: sortBy as 'createdAt' | 'updatedAt' | 'title' | 'views' | 'author',
         sortOrder: sortOrder as 'asc' | 'desc',
         search: search as string,
         channelId: channelId ? parseInt(channelId as string) : undefined
@@ -177,29 +180,24 @@ export class ModerationController {
         meta: {
           requestedStatus: status,
           totalResults: result.pagination.total,
-          moderatedBy: req.user?.username // ✅ USAR req.user?.username DIRECTAMENTE
+          moderatedBy: req.user?.username
         }
       });
     } catch (error) {
-      console.error('❌ Error in getModeratedPosts:', error);
       this.handleError(error, res, 'Error getting moderated posts');
     }
   }
 
-  // ✅ GET /api/moderation/posts/stats - Estadísticas de moderación de posts
   async getPostModerationStats(req: Request, res: Response) {
     try {
       const moderatorId = req.user?.userId!;
       const { period = '7d' } = req.query;
 
-      console.log(`📊 Getting post moderation stats for moderator ${moderatorId}, period: ${period}`);
-
-      // Obtener estadísticas básicas usando GetModeratedPosts use case
       const result = await this.getModeratedPosts.execute({
         moderatorId,
         status: 'all',
         page: 1,
-        limit: 1 // Solo necesitamos el summary
+        limit: 1
       });
 
       const stats = {
@@ -213,12 +211,12 @@ export class ModerationController {
         },
         actions: {
           totalModerated: result.summary.totalModerated,
-          recentlyModerated: 0, // TODO: Implementar conteo por período
-          averagePerDay: 0      // TODO: Implementar cálculo por período
+          recentlyModerated: 0,
+          averagePerDay: 0
         },
         moderator: {
           id: moderatorId,
-          username: 'Moderador', // ✅ Usar valor fijo o buscar en BD
+          username: 'Moderador',
           role: req.user?.role
         },
         generatedAt: new Date()
@@ -230,14 +228,10 @@ export class ModerationController {
         message: 'Post moderation statistics retrieved successfully'
       });
     } catch (error) {
-      console.error('❌ Error in getPostModerationStats:', error);
       this.handleError(error, res, 'Error getting post moderation statistics');
     }
   }
 
-  // ===== ESTADÍSTICAS GENERALES =====
-
-  // GET /api/moderation/stats - Estadísticas generales de moderación
   async getStats(req: Request, res: Response) {
     try {
       const requesterId = req.user?.userId!;
@@ -258,19 +252,16 @@ export class ModerationController {
     }
   }
 
-  // ✅ GET /api/moderation/stats/comprehensive - Estadísticas completas (posts + comentarios)
   async getComprehensiveStats(req: Request, res: Response) {
     try {
       const moderatorId = req.user?.userId!;
       const { period = '7d' } = req.query;
 
-      // Obtener estadísticas de comentarios
       const commentStats = await this.getModerationStats.execute({
         requesterId: moderatorId,
         period: period as 'today' | 'week' | 'month' | 'year' | 'all'
       });
 
-      // Obtener estadísticas de posts usando el use case
       const postStatsResult = await this.getModeratedPosts.execute({
         moderatorId,
         status: 'all',
@@ -295,10 +286,10 @@ export class ModerationController {
             (postStatsResult.summary.totalHidden / 
             (postStatsResult.summary.totalVisible + postStatsResult.summary.totalHidden)) * 100 : 0
         },
-        comments: commentStats, // Estadísticas de comentarios del use case existente
+        comments: commentStats,
         moderator: {
           id: moderatorId,
-          username: 'Moderador', // ✅ Usar valor fijo o buscar en BD
+          username: 'Moderador',
           role: req.user?.role
         },
         generatedAt: new Date()
@@ -310,12 +301,168 @@ export class ModerationController {
         message: 'Comprehensive moderation statistics retrieved successfully'
       });
     } catch (error) {
-      console.error('❌ Error in comprehensive stats:', error);
       this.handleError(error, res, 'Error getting comprehensive statistics');
     }
   }
 
-  // ===== MÉTODOS AUXILIARES PRIVADOS =====
+  // ===== NUEVOS MÉTODOS PARA SANCIONES (CON NOMBRES CORREGIDOS) =====
+
+  // POST /api/moderation/sanctions - Aplicar sanción
+  async applySanction(req: Request, res: Response) {
+    try {
+      const { 
+        targetUserId, 
+        sanctionType, 
+        reason, 
+        durationHours, 
+        severity, 
+        evidence 
+      } = req.body;
+      const moderatorId = req.user?.userId!;
+
+      if (!targetUserId || !sanctionType || !reason) {
+        return res.status(400).json({
+          success: false,
+          error: 'Target user ID, sanction type, and reason are required',
+          code: 'MISSING_FIELDS'
+        });
+      }
+
+      const validSanctionTypes = ['warning', 'temp_suspend', 'permanent_ban', 'silence', 'restriction', 'ip_ban'];
+      if (!validSanctionTypes.includes(sanctionType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid sanction type',
+          code: 'INVALID_SANCTION_TYPE'
+        });
+      }
+
+      // ✅ USAR LA PROPIEDAD RENOMBRADA
+      const result = await this.applySanctionUseCase.execute({
+        targetUserId: parseInt(targetUserId),
+        moderatorId,
+        sanctionType,
+        reason,
+        durationHours: durationHours ? parseInt(durationHours) : undefined,
+        severity,
+        evidence,
+        ipAddress: this.getClientIP(req),
+        userAgent: req.headers['user-agent']
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: result.message
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error applying sanction');
+    }
+  }
+
+  // POST /api/moderation/sanctions/:id/revoke - Revocar sanción
+  async revokeSanction(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const moderatorId = req.user?.userId!;
+
+      if (!reason) {
+        return res.status(400).json({
+          success: false,
+          error: 'Revoke reason is required',
+          code: 'MISSING_REASON'
+        });
+      }
+
+      // ✅ USAR LA PROPIEDAD RENOMBRADA
+      const result = await this.revokeSanctionUseCase.execute({
+        sanctionId: parseInt(id),
+        moderatorId,
+        reason,
+        ipAddress: this.getClientIP(req),
+        userAgent: req.headers['user-agent']
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: result.message
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error revoking sanction');
+    }
+  }
+
+  // GET /api/moderation/users/:id/sanctions - Obtener sanciones de usuario
+  async getUserSanctions(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const requesterId = req.user?.userId!;
+      const { includeInactive, page, limit } = req.query;
+
+      // ✅ USAR LA PROPIEDAD RENOMBRADA
+      const result = await this.getUserSanctionsUseCase.execute({
+        targetUserId: parseInt(id),
+        requesterId,
+        includeInactive: includeInactive === 'true',
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: `Found ${result.sanctions.length} sanctions for user`
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error fetching user sanctions');
+    }
+  }
+
+  // GET /api/moderation/sanctions - Historial de sanciones
+  async getSanctionsHistory(req: Request, res: Response) {
+    try {
+      const requesterId = req.user?.userId!;
+      const {
+        page,
+        limit,
+        sanctionType,
+        severity,
+        status,
+        userId,
+        moderatorId,
+        sortBy,
+        sortOrder
+      } = req.query;
+
+      // ✅ USAR LA PROPIEDAD RENOMBRADA
+      const result = await this.getSanctionsHistoryUseCase.execute({
+        requesterId,
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        sanctionType: sanctionType as string,
+        severity: severity as string,
+        status: status as 'active' | 'inactive' | 'all',
+        userId: userId ? parseInt(userId as string) : undefined,
+        moderatorId: moderatorId ? parseInt(moderatorId as string) : undefined,
+        sortBy: sortBy as any,
+        sortOrder: sortOrder as 'asc' | 'desc'
+      });
+
+      res.json({
+        success: true,
+        data: result.sanctions,
+        pagination: result.pagination,
+        stats: result.stats,
+        message: `Found ${result.sanctions.length} sanctions`
+      });
+    } catch (error) {
+      this.handleError(error, res, 'Error fetching sanctions history');
+    }
+  }
+
+  // ===== MÉTODOS DE UTILIDAD =====
 
   private getClientIP(req: Request): string | undefined {
     const forwarded = req.headers['x-forwarded-for'];
@@ -325,20 +472,35 @@ export class ModerationController {
     return req.socket.remoteAddress || undefined;
   }
 
-  // ✅ MANEJO DE ERRORES MEJORADO (incluye errores de posts)
   private handleError(error: any, res: Response, logMessage: string) {
     console.error(logMessage, error);
 
-    // Errores específicos de posts
-    if (error.message.includes('Post not found')) {
+    // Errores específicos de sanciones
+    if (error.message.includes('Sanction not found')) {
       return res.status(404).json({
         success: false,
-        error: 'Post not found',
-        code: 'POST_NOT_FOUND'
+        error: 'Sanction not found',
+        code: 'SANCTION_NOT_FOUND'
       });
     }
 
-    // Errores específicos de autenticación
+    if (error.message.includes('Administrators cannot be sanctioned')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Administrators cannot be sanctioned',
+        code: 'CANNOT_SANCTION_ADMIN'
+      });
+    }
+
+    if (error.message.includes('Only administrators can sanction moderators')) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only administrators can sanction moderators',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    // Resto de errores existentes...
     if (error.message?.includes('User not found')) {
       return res.status(404).json({
         success: false,
@@ -352,73 +514,6 @@ export class ModerationController {
         success: false,
         error: 'Insufficient permissions for moderation',
         code: 'INSUFFICIENT_PERMISSIONS'
-      });
-    }
-
-    // Errores comunes de moderación (posts y comentarios)
-    if (error.message.includes('already hidden')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Content is already hidden',
-        code: 'ALREADY_HIDDEN'
-      });
-    }
-
-    if (error.message.includes('not hidden')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Content is not hidden',
-        code: 'NOT_HIDDEN'
-      });
-    }
-
-    if (error.message.includes('moderate your own')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot moderate your own content',
-        code: 'CANNOT_MODERATE_OWN_CONTENT'
-      });
-    }
-
-    // Errores específicos de usuarios baneados
-    if (error.message?.includes('already banned')) {
-      return res.status(400).json({
-        success: false,
-        error: 'User is already banned',
-        code: 'USER_ALREADY_BANNED'
-      });
-    }
-
-    if (error.message?.includes('not banned')) {
-      return res.status(400).json({
-        success: false,
-        error: 'User is not banned',
-        code: 'USER_NOT_BANNED'
-      });
-    }
-
-    if (error.message?.includes('cannot ban admin')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot ban administrator users',
-        code: 'CANNOT_BAN_ADMIN'
-      });
-    }
-
-    // Manejo de errores del dominio
-    if (error instanceof DomainError) {
-      return res.status(error.statusCode).json({
-        success: false,
-        error: error.message,
-        code: error.name
-      });
-    }
-
-    if (error instanceof CustomError) {
-      return res.status(error.statusCode).json({
-        success: false,
-        error: error.message,
-        code: error.name
       });
     }
 
