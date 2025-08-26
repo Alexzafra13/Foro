@@ -28,6 +28,12 @@ export class UserErrors {
   static insufficientPermissions() {
     return new DomainError('Insufficient permissions for this action', 403);
   }
+  static accountBanned(reason?: string) {
+    const message = reason 
+      ? `Tu cuenta ha sido suspendida. Motivo: ${reason}` 
+      : 'Tu cuenta ha sido suspendida';
+    return new DomainError(message, 403);
+  }
 }
 
 export class PostErrors {
