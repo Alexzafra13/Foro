@@ -1,5 +1,4 @@
-// ===== SOLUCIÓN 1: RENOMBRAR PROPIEDADES (RECOMENDADA) =====
-// src/presentation/controllers/moderation.controller.ts
+// src/presentation/controllers/moderation.controller.ts - COMPLETO CON ESTADÍSTICAS REALES
 
 import { Request, Response } from 'express';
 // Use cases existentes
@@ -14,6 +13,7 @@ import { ApplySanction } from '../../domain/use-cases/moderation/apply-sanction.
 import { RevokeSanction } from '../../domain/use-cases/moderation/revoke-sanction.use-case';
 import { GetUserSanctions } from '../../domain/use-cases/moderation/get-user-sanctions.use-case';
 import { GetSanctionsHistory } from '../../domain/use-cases/moderation/get-sanctions-history.use-case';
+import { SanctionRepository } from '../../domain/repositories/sanction.repository';
 import { CustomError, DomainError } from '../../shared/errors';
 
 export class ModerationController {
@@ -25,11 +25,13 @@ export class ModerationController {
     private readonly getModeratedComments: GetModeratedComments,
     private readonly getModerationStats: GetModerationStats,
     private readonly getModeratedPosts: GetModeratedPosts,
-    // ✅ RENOMBRAR PROPIEDADES PARA EVITAR CONFLICTO
+    // Use cases de sanciones renombrados
     private readonly applySanctionUseCase: ApplySanction,
     private readonly revokeSanctionUseCase: RevokeSanction,
     private readonly getUserSanctionsUseCase: GetUserSanctions,
-    private readonly getSanctionsHistoryUseCase: GetSanctionsHistory
+    private readonly getSanctionsHistoryUseCase: GetSanctionsHistory,
+    // Repositorio para estadísticas directas
+    private readonly sanctionRepository: SanctionRepository
   ) {}
 
   // ===== MÉTODOS EXISTENTES (SIN CAMBIOS) =====
@@ -305,21 +307,55 @@ export class ModerationController {
     }
   }
 
-  // ===== NUEVOS MÉTODOS PARA SANCIONES (CON NOMBRES CORREGIDOS) =====
+  // ===== MÉTODOS DE SANCIONES CON ESTADÍSTICAS REALES =====
 
-  // GET /api/moderation/sanctions/stats - Estadísticas de sanciones
+  // GET /api/moderation/sanctions/stats - Estadísticas de sanciones REALES
   async getSanctionsStats(req: Request, res: Response) {
     try {
       const requesterId = req.user?.userId!;
       const { period = 'all' } = req.query;
 
-      // Por ahora usamos datos mock hasta que se implemente la lógica completa
-      const mockStats = {
-        totalSanctions: 0,
-        activeSanctions: 0,
-        usersWithActiveSanctions: 0,
-        expiredToday: 0,
-        sanctionsByType: {
+      console.log(`Getting sanctions stats for user ${requesterId}, period: ${period}`);
+
+      // Calcular estadísticas reales desde la base de datos
+      const [
+        totalStats,
+        activeStats,
+        expiredTodayCount,
+        moderationStats
+      ] = await Promise.all([
+        // Total de sanciones
+        this.sanctionRepository.findMany({}, { page: 1, limit: 1 }),
+        
+        // Sanciones activas (no expiradas y isActive = true)
+        this.sanctionRepository.findMany(
+          { isActive: true }, 
+          { page: 1, limit: 1 }
+        ),
+        
+        // Sanciones que expiran hoy
+        this.getExpiredTodayCount(),
+        
+        // Estadísticas por tipo y severidad
+        this.sanctionRepository.getModerationStats()
+      ]);
+
+      // Calcular usuarios únicos con sanciones activas
+      const activeSanctions = await this.sanctionRepository.findMany(
+        { isActive: true }, 
+        { page: 1, limit: 1000 } // Obtener todas las activas para contar usuarios únicos
+      );
+      
+      const uniqueUserIds = new Set(
+        activeSanctions.data.map(s => s.userId).filter(Boolean)
+      );
+
+      const stats = {
+        totalSanctions: totalStats.pagination.total,
+        activeSanctions: activeStats.pagination.total,
+        usersWithActiveSanctions: uniqueUserIds.size,
+        expiredToday: expiredTodayCount,
+        sanctionsByType: moderationStats.sanctionsByType || {
           warning: 0,
           silence: 0,
           restriction: 0,
@@ -327,7 +363,7 @@ export class ModerationController {
           permanent_ban: 0,
           ip_ban: 0
         },
-        sanctionsBySeverity: {
+        sanctionsBySeverity: moderationStats.sanctionsBySeverity || {
           low: 0,
           medium: 0,
           high: 0,
@@ -339,13 +375,16 @@ export class ModerationController {
         generatedAt: new Date()
       };
 
+      console.log(`Sanctions stats calculated:`, stats);
+
       res.json({
         success: true,
-        data: mockStats,
+        data: stats,
         message: `Sanctions statistics retrieved successfully for period: ${period}`
       });
 
     } catch (error) {
+      console.error('Error retrieving sanctions statistics:', error);
       this.handleError(error, res, 'Error retrieving sanctions statistics');
     }
   }
@@ -380,7 +419,6 @@ export class ModerationController {
         });
       }
 
-      // ✅ USAR LA PROPIEDAD RENOMBRADA
       const result = await this.applySanctionUseCase.execute({
         targetUserId: parseInt(targetUserId),
         moderatorId,
@@ -418,7 +456,6 @@ export class ModerationController {
         });
       }
 
-      // ✅ USAR LA PROPIEDAD RENOMBRADA
       const result = await this.revokeSanctionUseCase.execute({
         sanctionId: parseInt(id),
         moderatorId,
@@ -444,7 +481,6 @@ export class ModerationController {
       const requesterId = req.user?.userId!;
       const { includeInactive, page, limit } = req.query;
 
-      // ✅ USAR LA PROPIEDAD RENOMBRADA
       const result = await this.getUserSanctionsUseCase.execute({
         targetUserId: parseInt(id),
         requesterId,
@@ -479,7 +515,6 @@ export class ModerationController {
         sortOrder
       } = req.query;
 
-      // ✅ USAR LA PROPIEDAD RENOMBRADA
       const result = await this.getSanctionsHistoryUseCase.execute({
         requesterId,
         page: page ? parseInt(page as string) : undefined,
@@ -505,6 +540,33 @@ export class ModerationController {
     }
   }
 
+  // ===== MÉTODOS AUXILIARES PARA ESTADÍSTICAS =====
+
+  private async getExpiredTodayCount(): Promise<number> {
+    try {
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+      // Buscar sanciones que expiran hoy
+      const result = await this.sanctionRepository.findMany(
+        {}, 
+        { page: 1, limit: 1000 }
+      );
+      
+      const expiredToday = result.data.filter(sanction => {
+        if (!sanction.expiresAt) return false;
+        const expiryDate = new Date(sanction.expiresAt);
+        return expiryDate >= todayStart && expiryDate < todayEnd;
+      });
+
+      return expiredToday.length;
+    } catch (error) {
+      console.error('Error calculating expired today count:', error);
+      return 0;
+    }
+  }
+
   // ===== MÉTODOS DE UTILIDAD =====
 
   private getClientIP(req: Request): string | undefined {
@@ -519,7 +581,7 @@ export class ModerationController {
     console.error(logMessage, error);
 
     // Errores específicos de sanciones
-    if (error.message.includes('Sanction not found')) {
+    if (error.message?.includes('Sanction not found')) {
       return res.status(404).json({
         success: false,
         error: 'Sanction not found',
@@ -527,7 +589,7 @@ export class ModerationController {
       });
     }
 
-    if (error.message.includes('Administrators cannot be sanctioned')) {
+    if (error.message?.includes('Administrators cannot be sanctioned')) {
       return res.status(400).json({
         success: false,
         error: 'Administrators cannot be sanctioned',
@@ -535,7 +597,7 @@ export class ModerationController {
       });
     }
 
-    if (error.message.includes('Only administrators can sanction moderators')) {
+    if (error.message?.includes('Only administrators can sanction moderators')) {
       return res.status(403).json({
         success: false,
         error: 'Only administrators can sanction moderators',
@@ -543,7 +605,7 @@ export class ModerationController {
       });
     }
 
-    // Resto de errores existentes...
+    // Errores de usuarios
     if (error.message?.includes('User not found')) {
       return res.status(404).json({
         success: false,

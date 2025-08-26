@@ -383,7 +383,8 @@ export class Dependencies {
       applySanction,
       revokeSanction,
       getUserSanctions,
-      getSanctionsHistory
+      getSanctionsHistory,
+      sanctionRepository
     );
 
     // ✅ AGREGADO: Controller de búsqueda de usuarios
