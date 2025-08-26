@@ -81,7 +81,7 @@ import { DeleteComment } from "../domain/use-cases/comments/delete-comment.use-c
 
 // Use Cases - Categories & Channels
 import { GetCategories } from "../domain/use-cases/categories/get-categories.use-case";
-import { GetChannel } from "../domain/use-cases/channel/get-channel.use-case";
+import { GetChannel } from "@/domain/use-cases/channel/get-channel.use-case"; 
 
 // Use Cases - Invites
 import { GenerateInviteCode } from "../domain/use-cases/invites/generate-invite-code.use-case";
@@ -91,17 +91,17 @@ import { DeleteInviteCode } from "../domain/use-cases/invites/delete-invite-code
 import { GetInviteStats } from "../domain/use-cases/invites/get-invite-stats.use-case";
 
 // Use Cases - Email
-import { SendVerificationEmail } from "../domain/use-cases/email/send-verification-email.use-case";
-import { VerifyEmail } from "../domain/use-cases/email/verify-email.use-case";
+import { SendVerificationEmail } from "@/domain/use-cases/email/send-verification-email.use-case"; 
+import { VerifyEmail } from "@/domain/use-cases/email/verify-email.use-case"; 
 
 // Use Cases - User Profile
 import { GetProfile } from "../domain/use-cases/user/get-profile.use-case";
 import { UpdateProfile } from "../domain/use-cases/user/update-profile.use-case";
 import { ChangePassword } from "../domain/use-cases/user/change-password.use-case";
-import {
-  GetUserSettings,
-  UpdateUserSettings,
-} from "../domain/use-cases/user/update-user-settings.use-case";
+import { GetUserSettings, UpdateUserSettings } from "../domain/use-cases/user/update-user-settings.use-case";
+
+// ✅ AGREGADO: Use Case - Búsqueda de usuarios
+import { SearchUsers } from "../domain/use-cases/user/search-users.use-case";
 
 // Use Cases - Votes
 import { VotePost } from "../domain/use-cases/votes/vote-post.use-case";
@@ -124,6 +124,9 @@ import { PasswordResetController } from "../presentation/controllers/password-re
 import { VoteController } from "../presentation/controllers/vote.controller";
 import { NotificationController } from "../presentation/controllers/notification.controller";
 import { ModerationController } from "../presentation/controllers/moderation.controller";
+
+// ✅ AGREGADO: Controller de búsqueda de usuarios
+import { UserSearchController } from "../presentation/controllers/user-search.controller";
 
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
@@ -275,6 +278,9 @@ export class Dependencies {
       activityLogRepository
     );
 
+    // ✅ AGREGADO: Use case de búsqueda de usuarios
+    const searchUsers = new SearchUsers(userRepository);
+
     // ===== USE CASES - POSTS =====
     const createPost = new CreatePost(postRepository, userRepository);
     const getPosts = new GetPosts(postRepository, userRepository);
@@ -380,6 +386,9 @@ export class Dependencies {
       getSanctionsHistory
     );
 
+    // ✅ AGREGADO: Controller de búsqueda de usuarios
+    const userSearchController = new UserSearchController(searchUsers);
+
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
     const dependencies = new Dependencies(
       // Repositories
@@ -418,6 +427,9 @@ export class Dependencies {
         // Settings
         getUserSettings,
         updateUserSettings,
+
+        // ✅ AGREGADO: Búsqueda de usuarios
+        searchUsers,
 
         // Posts
         createPost,
@@ -489,6 +501,8 @@ export class Dependencies {
         voteController,
         notificationController,
         moderationController, // ✅ Con todas las dependencias nuevas
+        // ✅ AGREGADO: Controller de búsqueda de usuarios
+        userSearchController,
       }
     );
 

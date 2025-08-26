@@ -1,4 +1,4 @@
-// src/shared/errors/domain.errors.ts (COMPLETO)
+// src/shared/errors/domain.errors.ts - CORREGIDO CON MÉTODO FALTANTE
 import { CustomError } from "./custom.error";
 
 export class DomainError extends CustomError {
@@ -89,6 +89,11 @@ export class ValidationErrors {
 
   static maxLength(field: string, maxLength: number) {
     return new DomainError(`${field} must not exceed ${maxLength} characters`, 400);
+  }
+
+  // ✅ MÉTODO FALTANTE AGREGADO
+  static invalidInput(message: string) {
+    return new DomainError(message, 400);
   }
 }
 

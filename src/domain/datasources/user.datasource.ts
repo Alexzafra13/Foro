@@ -1,4 +1,4 @@
-// src/domain/datasources/user.datasource.ts - INTERFACE ACTUALIZADA
+// src/domain/datasources/user.datasource.ts - INTERFACE ACTUALIZADA CON BÚSQUEDA
 
 import { UserEntity } from '../entities/user.entity';
 import { PaginatedUsersResult } from '../repositories/user.repository';
@@ -16,6 +16,15 @@ export interface UserFilters {
   roleId?: number;
   isEmailVerified?: boolean;
   moderationLevel?: 'clean' | 'warned' | 'restricted' | 'suspended' | 'banned';
+}
+
+// ✅ NUEVO: FILTROS PARA BÚSQUEDA
+export interface UserSearchFilters {
+  query: string;
+  limit?: number;
+  excludeUserId?: number;
+  includeRoleInfo?: boolean;
+  onlyModeratable?: boolean; // Solo usuarios que pueden ser moderados
 }
 
 // ✅ NUEVO DTO PARA ACTUALIZACIONES DE MODERACIÓN
@@ -51,7 +60,10 @@ export abstract class UserDatasource {
   abstract findByRole(roleName: string): Promise<UserEntity[]>;
   abstract countBannedUsers(): Promise<number>;
 
-  // ✅ NUEVOS MÉTODOS PARA MODERACIÓN AVANZADA
+  // ✅ NUEVO MÉTODO: BÚSQUEDA DE USUARIOS
+  abstract searchUsers(filters: UserSearchFilters): Promise<UserEntity[]>;
+
+  // ✅ MÉTODOS PARA MODERACIÓN AVANZADA (EXISTENTES)
   abstract updateModerationStatus(id: number, data: UpdateUserModerationDto): Promise<UserEntity>;
   abstract findSilencedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult>;
   abstract findUsersByModerationLevel(

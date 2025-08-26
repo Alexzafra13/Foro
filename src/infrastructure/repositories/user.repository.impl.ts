@@ -1,4 +1,4 @@
-// src/infrastructure/repositories/user.repository.impl.ts - IMPLEMENTACIÓN COMPLETA
+// src/infrastructure/repositories/user.repository.impl.ts - IMPLEMENTACIÓN COMPLETA CON BÚSQUEDA
 
 import { UserEntity } from '../../domain/entities/user.entity';
 import { UserRepository, PaginatedUsersResult } from '../../domain/repositories/user.repository';
@@ -7,7 +7,8 @@ import {
   CreateUserDto, 
   UserFilters, 
   UpdateUserModerationDto, 
-  ModerationStatsDto 
+  ModerationStatsDto,
+  UserSearchFilters
 } from '../../domain/datasources/user.datasource';
 
 export class UserRepositoryImpl implements UserRepository {
@@ -51,7 +52,13 @@ export class UserRepositoryImpl implements UserRepository {
     return await this.datasource.countBannedUsers();
   }
 
-  // ✅ NUEVOS MÉTODOS IMPLEMENTADOS
+  // ✅ NUEVO MÉTODO: BÚSQUEDA DE USUARIOS
+  async searchUsers(filters: UserSearchFilters): Promise<UserEntity[]> {
+    console.log('🔍 UserRepositoryImpl.searchUsers called with:', filters);
+    return await this.datasource.searchUsers(filters);
+  }
+
+  // ✅ MÉTODOS DE MODERACIÓN AVANZADA (EXISTENTES)
 
   async updateModerationStatus(id: number, data: UpdateUserModerationDto): Promise<UserEntity> {
     return await this.datasource.updateModerationStatus(id, data);

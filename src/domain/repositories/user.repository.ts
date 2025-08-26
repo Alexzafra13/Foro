@@ -1,7 +1,7 @@
-// src/domain/repositories/user.repository.ts - INTERFACE ACTUALIZADA
+// src/domain/repositories/user.repository.ts - INTERFACE ACTUALIZADA CON BÚSQUEDA
 
 import { UserEntity } from '../entities/user.entity';
-import { CreateUserDto, UserFilters, UpdateUserModerationDto, ModerationStatsDto } from '../datasources/user.datasource';
+import { CreateUserDto, UserFilters, UpdateUserModerationDto, ModerationStatsDto, UserSearchFilters } from '../datasources/user.datasource';
 
 export interface PaginatedUsersResult {
   data: UserEntity[];
@@ -27,7 +27,10 @@ export abstract class UserRepository {
   abstract findByRole(roleName: string): Promise<UserEntity[]>;
   abstract countBannedUsers(): Promise<number>;
 
-  // ✅ NUEVOS MÉTODOS PARA MODERACIÓN AVANZADA
+  // ✅ NUEVO MÉTODO: BÚSQUEDA DE USUARIOS
+  abstract searchUsers(filters: UserSearchFilters): Promise<UserEntity[]>;
+
+  // ✅ MÉTODOS PARA MODERACIÓN AVANZADA (EXISTENTES)
   abstract updateModerationStatus(id: number, data: UpdateUserModerationDto): Promise<UserEntity>;
   abstract findSilencedUsers(pagination: { page: number; limit: number }): Promise<PaginatedUsersResult>;
   abstract findUsersByModerationLevel(
