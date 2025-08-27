@@ -1,6 +1,6 @@
 import express, { Application } from "express";
 import { envs } from "../config/envs";
-import { CorsMiddleware } from "./middlewares/cors.middleware"; // 🆕 IMPORTAR
+import { CorsMiddleware } from "./middlewares/cors.middleware";
 
 export class Server {
   private app: Application;
@@ -13,10 +13,10 @@ export class Server {
   }
 
   private middlewares() {
-    // 🆕 CORS DINÁMICO USANDO MIDDLEWARE SEPARADO
+    // CORS dinámico usando middleware separado
     this.app.use(CorsMiddleware.dynamicCors);
     
-    // 📊 LOG DE CONFIGURACIÓN AL INICIO
+    // Log de configuración al inicio
     CorsMiddleware.logConfiguration();
 
     this.app.use(express.json());
@@ -32,14 +32,13 @@ export class Server {
   }
 
   private async routes() {
-    // Health check MEJORADO
+    // Health check mejorado
     this.app.get("/health", (req, res) => {
       res.json({
         status: "OK",
         timestamp: new Date().toISOString(),
         service: "Forum API",
         version: "1.0.0",
-        // 🆕 INFORMACIÓN DE CONFIGURACIÓN
         config: {
           frontend_url: envs.FRONTEND_URL,
           allowed_origins_count: envs.ALLOWED_ORIGINS.length,
@@ -49,7 +48,7 @@ export class Server {
       });
     });
 
-    // 🆕 ENDPOINT PARA DEBUG DE CORS (solo desarrollo)
+    // Endpoint para debug de CORS (solo desarrollo)
     if (envs.NODE_ENV === 'development') {
       this.app.get("/debug/cors", (req, res) => {
         res.json({
@@ -61,7 +60,7 @@ export class Server {
       });
     }
 
-    // Cargar todas las rutas (TU CÓDIGO ORIGINAL)
+    // Cargar todas las rutas
     const { AuthRoutes } = await import("./routes/auth.routes");
     const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
     const { PasswordResetRoutes } = await import("./routes/password-reset.routes");
@@ -82,11 +81,11 @@ export class Server {
     this.app.use("/api/auth", await EmailVerificationRoutes.getRoutes());
     this.app.use("/api/auth", await PasswordResetRoutes.getRoutes());
 
-    // Registrar rutas de usuarios
+    // Registrar rutas de usuarios (incluye rutas públicas)
     this.app.use("/api/users", await UserRoutes.getRoutes());
     this.app.use("/api/users", await ProfileRoutes.getRoutes());
 
-     // Registrar rutas de notificaciones
+    // Registrar rutas de notificaciones
     this.app.use("/api/notifications", await NotificationRoutes.getRoutes());
 
     // Registrar rutas de moderación
@@ -110,7 +109,7 @@ export class Server {
     // Registrar rutas de invitaciones
     this.app.use("/api/invites", await InviteRoutes.getRoutes());
 
-    // 404 handler - DEBE IR AL FINAL
+    // 404 handler - debe ir al final
     this.app.use((req, res) => {
       res.status(404).json({
         success: false,
@@ -128,7 +127,6 @@ export class Server {
         console.log(`🚀 Forum API running on port ${this.port}`);
         console.log(`📡 Health check: http://localhost:${this.port}/health`);
         
-        // 🆕 LOGS MEJORADOS CON AUTO-DETECCIÓN
         console.log(`🌐 Frontend URL detectada: ${envs.FRONTEND_URL}`);
         console.log(`🌍 CORS configurado para ${envs.ALLOWED_ORIGINS.length} orígenes`);
         
@@ -137,7 +135,7 @@ export class Server {
           console.log(`🔧 Debug CORS: http://localhost:${this.port}/debug/cors`);
           console.log(`\n📚 Available endpoints:`);
           console.log(`   Auth: /api/auth/*`);
-          console.log(`   Users: /api/users/*`);
+          console.log(`   Users: /api/users/* (includes public profiles)`);
           console.log(`   Posts: /api/posts/*`);
           console.log(`   Comments: /api/posts/:id/comments, /api/comments/*`);
           console.log(`   Votes: /api/posts/:id/vote, /api/comments/:id/vote`);

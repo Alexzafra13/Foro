@@ -103,6 +103,9 @@ import { GetUserSettings, UpdateUserSettings } from "../domain/use-cases/user/up
 // ✅ AGREGADO: Use Case - Búsqueda de usuarios
 import { SearchUsers } from "../domain/use-cases/user/search-users.use-case";
 
+// ✅ AGREGADO: Use Case - Perfil público
+import { GetPublicProfile } from "../domain/use-cases/user/get-public-profile.use-case";
+
 // Use Cases - Votes
 import { VotePost } from "../domain/use-cases/votes/vote-post.use-case";
 import { VoteComment } from "../domain/use-cases/votes/vote-comment.use-case";
@@ -127,6 +130,9 @@ import { ModerationController } from "../presentation/controllers/moderation.con
 
 // ✅ AGREGADO: Controller de búsqueda de usuarios
 import { UserSearchController } from "../presentation/controllers/user-search.controller";
+
+// ✅ AGREGADO: Controller de perfil público
+import { PublicProfileController } from "../presentation/controllers/public-profile.controller";
 
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
@@ -281,6 +287,14 @@ export class Dependencies {
     // ✅ AGREGADO: Use case de búsqueda de usuarios
     const searchUsers = new SearchUsers(userRepository);
 
+    // ✅ AGREGADO: Use case de perfil público
+    const getPublicProfile = new GetPublicProfile(
+      userRepository,
+      userSettingsRepository,
+      postRepository,
+      commentRepository
+    );
+
     // ===== USE CASES - POSTS =====
     const createPost = new CreatePost(postRepository, userRepository);
     const getPosts = new GetPosts(postRepository, userRepository);
@@ -390,6 +404,9 @@ export class Dependencies {
     // ✅ AGREGADO: Controller de búsqueda de usuarios
     const userSearchController = new UserSearchController(searchUsers);
 
+    // ✅ AGREGADO: Controller de perfil público
+    const publicProfileController = new PublicProfileController(getPublicProfile);
+
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
     const dependencies = new Dependencies(
       // Repositories
@@ -431,6 +448,9 @@ export class Dependencies {
 
         // ✅ AGREGADO: Búsqueda de usuarios
         searchUsers,
+
+        // ✅ AGREGADO: Perfil público
+        getPublicProfile,
 
         // Posts
         createPost,
@@ -504,6 +524,8 @@ export class Dependencies {
         moderationController, // ✅ Con todas las dependencias nuevas
         // ✅ AGREGADO: Controller de búsqueda de usuarios
         userSearchController,
+        // ✅ AGREGADO: Controller de perfil público
+        publicProfileController,
       }
     );
 
