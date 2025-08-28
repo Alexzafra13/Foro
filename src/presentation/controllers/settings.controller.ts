@@ -1,3 +1,4 @@
+// src/presentation/controllers/settings.controller.ts - COMPLETO CON NUEVOS CAMPOS
 import { Request, Response } from 'express';
 import { GetUserSettings } from '@/domain/use-cases/user/update-user-settings.use-case'; 
 import { UpdateUserSettings } from '@/domain/use-cases/user/update-user-settings.use-case'; 
@@ -41,7 +42,11 @@ export class SettingsController {
         commentNotifications,
         privateProfile,
         showEmail,
-        showLastSeen
+        showLastSeen,
+        // ✅ NUEVOS CAMPOS
+        showStats,
+        showJoinDate,
+        restrictToModerators
       } = req.body;
 
       const result = await this.updateUserSettings.execute({
@@ -55,6 +60,10 @@ export class SettingsController {
         privateProfile,
         showEmail,
         showLastSeen,
+        // ✅ NUEVOS CAMPOS
+        showStats,
+        showJoinDate,
+        restrictToModerators,
         ipAddress
       });
 

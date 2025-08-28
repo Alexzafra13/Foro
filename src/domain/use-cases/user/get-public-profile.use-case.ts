@@ -174,7 +174,7 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
     const fullProfile: PublicUserProfileDto = {
       ...baseProfile,
       bio: user.bio || null,
-      createdAt: userSettings.showJoinDate ? user.createdAt : user.createdAt, // Mantener para cálculos internos
+      createdAt: user.createdAt, // ✅ CORREGIDO: Siempre mantener para cálculos, filtrar después
       lastLoginAt: userSettings.showLastSeen ? (user.lastLoginAt || null) : null,
       stats: userSettings.showStats ? stats : this.getEmptyStats(user.createdAt),
       isPrivateProfile: false
@@ -185,7 +185,7 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       fullProfile.email = user.email;
     }
 
-    // Si showJoinDate es false, ocultar la fecha en el frontend (enviar null)
+    // ✅ FILTRADO CORRECTO: Si showJoinDate es false, ocultar la fecha en el frontend
     if (!userSettings.showJoinDate) {
       // Para el frontend, enviamos una fecha muy genérica o null
       fullProfile.createdAt = new Date('2020-01-01'); // Fecha genérica

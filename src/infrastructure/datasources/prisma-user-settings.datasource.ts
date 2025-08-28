@@ -1,25 +1,10 @@
-// src/infrastructure/datasources/prisma-user-settings.datasource.ts - ACTUALIZADO
+// src/infrastructure/datasources/prisma-user-settings.datasource.ts - CORREGIDO
 import { PrismaClient } from '@prisma/client';
 import { UserSettingsEntity } from '../../domain/entities/user-settings.entity';
-
-
-export interface CreateUserSettingsDto {
-  userId: number;
-  theme: 'light' | 'dark' | 'system';
-  language: string;
-  timezone: string;
-  emailNotifications: boolean;
-  postNotifications: boolean;
-  commentNotifications: boolean;
-  privateProfile: boolean;
-  showEmail: boolean;
-  showLastSeen: boolean;
-  // Nuevos campos agregados
-  showStats: boolean;
-  showJoinDate: boolean;
-  restrictToModerators: boolean;
-}
-
+import { 
+  UserSettingsDatasource, 
+  CreateUserSettingsDto 
+} from '../../domain/datasources/user-settings.datasource';
 
 export class PrismaUserSettingsDatasource implements UserSettingsDatasource {
   constructor(private readonly prisma: PrismaClient) {}

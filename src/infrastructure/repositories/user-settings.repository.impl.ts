@@ -1,31 +1,14 @@
-// src/infrastructure/repositories/user-settings.repository.impl.ts - ACTUALIZADO
-import { UserSettingsEntity, CreateUserSettingsData } from '../../domain/entities/user-settings.entity';
-import { UserSettingsRepository } from '../../domain/repositories/user-settings.repository';
-import { UserSettingsDatasource, CreateUserSettingsDto } from '../datasources/prisma-user-settings.datasource';
+// src/infrastructure/repositories/user-settings.repository.impl.ts - SIGUIENDO PATRÓN ORIGINAL
+import { UserSettingsEntity } from '../../domain/entities/user-settings.entity';
+import { UserSettingsRepository, CreateUserSettingsDto } from '../../domain/repositories/user-settings.repository';
+import { UserSettingsDatasource } from '../../domain/datasources/user-settings.datasource';
 
 export class UserSettingsRepositoryImpl implements UserSettingsRepository {
   constructor(private readonly datasource: UserSettingsDatasource) {}
 
-  async create(createDto: CreateUserSettingsData): Promise<UserSettingsEntity> {
-    // Mapear CreateUserSettingsData a CreateUserSettingsDto
-    const datasourceDto: CreateUserSettingsDto = {
-      userId: createDto.userId,
-      theme: createDto.theme,
-      language: createDto.language,
-      timezone: createDto.timezone,
-      emailNotifications: createDto.emailNotifications,
-      postNotifications: createDto.postNotifications,
-      commentNotifications: createDto.commentNotifications,
-      privateProfile: createDto.privateProfile,
-      showEmail: createDto.showEmail,
-      showLastSeen: createDto.showLastSeen,
-      // Nuevos campos
-      showStats: createDto.showStats,
-      showJoinDate: createDto.showJoinDate,
-      restrictToModerators: createDto.restrictToModerators
-    };
-
-    return await this.datasource.create(datasourceDto);
+  async create(createDto: CreateUserSettingsDto): Promise<UserSettingsEntity> {
+    // Pasamos directamente el DTO, ya que ambas interfaces son idénticas
+    return await this.datasource.create(createDto);
   }
 
   async findByUserId(userId: number): Promise<UserSettingsEntity | null> {
