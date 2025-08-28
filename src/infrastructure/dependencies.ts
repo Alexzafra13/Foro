@@ -1,5 +1,5 @@
-// ===== DEPENDENCIES.TS COMPLETO CON SANCIONES =====
-// src/infrastructure/dependencies.ts - VERSIÓN COMPLETA CON SISTEMA DE SANCIONES
+// ===== DEPENDENCIES.TS COMPLETO CON SANCIONES + UPLOAD =====
+// src/infrastructure/dependencies.ts - VERSIÓN COMPLETA CON SISTEMA DE SANCIONES Y UPLOAD
 
 // ✅ IMPORTAR LA INSTANCIA GLOBAL DE PRISMA
 import { prisma } from "./database";
@@ -21,6 +21,8 @@ import { PrismaPostViewDatasource } from "./datasources/prisma-post-view.datasou
 import { PrismaNotificationDatasource } from "./datasources/prisma-notification.datasource";
 // ✅ NUEVO DATASOURCE PARA SANCIONES
 import { PrismaSanctionDatasource } from "./datasources/prisma-sanction.datasource";
+// 🆕 NUEVO DATASOURCE PARA FILES
+import { PrismaFileDatasource } from "./datasources/prisma-file.datasource";
 
 // Repositories
 import { UserRepositoryImpl } from "./repositories/user.repository.impl";
@@ -39,6 +41,8 @@ import { PostViewRepositoryImpl } from "./repositories/post-view.repository.impl
 import { NotificationRepositoryImpl } from "./repositories/notification.repository.impl";
 // ✅ NUEVO REPOSITORY PARA SANCIONES
 import { SanctionRepositoryImpl } from "./repositories/sanction.repository.impl";
+// 🆕 NUEVO REPOSITORY PARA FILES
+import { FileRepositoryImpl } from "./repositories/file.repository.impl";
 
 // Use Cases - Moderation (EXISTENTES + NUEVOS)
 import { BanUser } from "../domain/use-cases/moderation/ban-user.use-case";
@@ -52,6 +56,12 @@ import { ApplySanction } from "../domain/use-cases/moderation/apply-sanction.use
 import { RevokeSanction } from "../domain/use-cases/moderation/revoke-sanction.use-case";
 import { GetUserSanctions } from "../domain/use-cases/moderation/get-user-sanctions.use-case";
 import { GetSanctionsHistory } from "../domain/use-cases/moderation/get-sanctions-history.use-case";
+
+// 🆕 USE CASES - FILES
+import { UploadFile } from "../domain/use-cases/files/upload-file.use-case";
+import { DeleteFile } from "../domain/use-cases/files/delete-file.use-case";
+import { GetUserFiles } from "../domain/use-cases/files/get-user-files.use-case";
+import { GetFileStats } from "../domain/use-cases/files/get-file-stats.use-case";
 
 // Use Cases - Notifications
 import { CreateNotification } from "../domain/use-cases/notifications/create-notification.use-case";
@@ -134,6 +144,9 @@ import { UserSearchController } from "../presentation/controllers/user-search.co
 // ✅ AGREGADO: Controller de perfil público
 import { PublicProfileController } from "../presentation/controllers/public-profile.controller";
 
+// 🆕 NUEVO: Controller de upload
+import { UploadController } from "../presentation/controllers/upload.controller";
+
 // Email Adapter
 import { createEmailAdapter } from "../config/email.adapter";
 
@@ -180,6 +193,8 @@ export class Dependencies {
     const notificationDatasource = new PrismaNotificationDatasource(prisma);
     // ✅ NUEVO DATASOURCE PARA SANCIONES
     const sanctionDatasource = new PrismaSanctionDatasource(prisma);
+    // 🆕 NUEVO DATASOURCE PARA FILES
+    const fileDatasource = new PrismaFileDatasource(prisma);
 
     // ===== REPOSITORIES =====
     const userRepository = new UserRepositoryImpl(userDatasource);
@@ -198,6 +213,8 @@ export class Dependencies {
     const notificationRepository = new NotificationRepositoryImpl(notificationDatasource);
     // ✅ NUEVO REPOSITORY PARA SANCIONES
     const sanctionRepository = new SanctionRepositoryImpl(sanctionDatasource);
+    // 🆕 NUEVO REPOSITORY PARA FILES
+    const fileRepository = new FileRepositoryImpl(fileDatasource);
 
     // ===== EMAIL ADAPTER =====
     const emailAdapter = createEmailAdapter();
@@ -234,6 +251,12 @@ export class Dependencies {
       userRepository,
       sanctionRepository
     );
+
+    // 🆕 USE CASES - FILES
+    const uploadFile = new UploadFile(fileRepository, userRepository);
+    const deleteFile = new DeleteFile(fileRepository, userRepository);
+    const getUserFiles = new GetUserFiles(fileRepository, userRepository);
+    const getFileStats = new GetFileStats(fileRepository, userRepository);
 
     // ===== USE CASES - NOTIFICATIONS =====
     const createNotification = new CreateNotification(notificationRepository, userRepository);
@@ -407,6 +430,14 @@ export class Dependencies {
     // ✅ AGREGADO: Controller de perfil público
     const publicProfileController = new PublicProfileController(getPublicProfile);
 
+    // 🆕 NUEVO: Controller de upload
+    const uploadController = new UploadController(
+      uploadFile,
+      deleteFile,
+      getUserFiles,
+      getFileStats
+    );
+
     // ✅ CREAR LA INSTANCIA DE DEPENDENCIES
     const dependencies = new Dependencies(
       // Repositories
@@ -427,6 +458,8 @@ export class Dependencies {
         notificationRepository,
         // ✅ NUEVO REPOSITORY
         sanctionRepository,
+        // 🆕 NUEVO REPOSITORY
+        fileRepository,
       },
 
       // Use Cases
@@ -451,6 +484,12 @@ export class Dependencies {
 
         // ✅ AGREGADO: Perfil público
         getPublicProfile,
+
+        // 🆕 FILES
+        uploadFile,
+        deleteFile,
+        getUserFiles,
+        getFileStats,
 
         // Posts
         createPost,
@@ -526,6 +565,8 @@ export class Dependencies {
         userSearchController,
         // ✅ AGREGADO: Controller de perfil público
         publicProfileController,
+        // 🆕 NUEVO: Controller de upload
+        uploadController,
       }
     );
 

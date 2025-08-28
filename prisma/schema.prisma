@@ -81,6 +81,8 @@ model User {
   sanctionsApplied  UserSanction[] @relation("ModeratorSanctions") 
   sanctionsRevoked  UserSanction[] @relation("RevokerSanctions")
 
+  uploadedFiles File[] @relation("UserFiles")
+
   @@map("users")
 }
 
@@ -429,4 +431,26 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("password_reset_tokens")
+}
+
+model File {
+  id           String   @id @default(uuid())
+  originalName String   @map("original_name") @db.VarChar(255)
+  filename     String   @unique @db.VarChar(255)
+  path         String   @db.VarChar(500)
+  url          String   @db.VarChar(500)
+  mimetype     String   @db.VarChar(100)
+  size         Int
+  uploadType   String   @map("upload_type") @db.VarChar(20) // 'avatar', 'post', 'comment'
+  uploaderId   Int      @map("uploader_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  uploader User @relation("UserFiles", fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  // Indices para optimización
+  @@index([uploaderId, createdAt])
+  @@index([uploadType, createdAt])
+  @@index([createdAt])
+  @@map("files")
 }

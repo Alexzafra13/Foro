@@ -32,6 +32,9 @@ export class Server {
   }
 
   private async routes() {
+    // 🆕 CREAR DIRECTORIOS DE UPLOAD AL INICIO
+    await this.ensureUploadDirectories();
+
     // Health check mejorado
     this.app.get("/health", (req, res) => {
       res.json({
@@ -43,7 +46,8 @@ export class Server {
           frontend_url: envs.FRONTEND_URL,
           allowed_origins_count: envs.ALLOWED_ORIGINS.length,
           environment: envs.NODE_ENV,
-          cors_enabled: true
+          cors_enabled: true,
+          upload_enabled: true // 🆕 Indicar que upload está habilitado
         }
       });
     });
@@ -60,7 +64,11 @@ export class Server {
       });
     }
 
-    // Cargar todas las rutas
+    // 🆕 SERVIR ARCHIVOS ESTÁTICOS - DEBE IR ANTES DE LAS RUTAS API
+    const { UploadRoutes } = await import("./routes/upload.routes");
+    this.app.use(UploadRoutes.getStaticRoute());
+
+    // Cargar todas las rutas existentes
     const { AuthRoutes } = await import("./routes/auth.routes");
     const { EmailVerificationRoutes } = await import("./routes/email-verification.routes");
     const { PasswordResetRoutes } = await import("./routes/password-reset.routes");
@@ -84,6 +92,9 @@ export class Server {
     // Registrar rutas de usuarios (incluye rutas públicas)
     this.app.use("/api/users", await UserRoutes.getRoutes());
     this.app.use("/api/users", await ProfileRoutes.getRoutes());
+
+    // 🆕 REGISTRAR RUTAS DE UPLOAD
+    this.app.use("/api/upload", await UploadRoutes.getRoutes());
 
     // Registrar rutas de notificaciones
     this.app.use("/api/notifications", await NotificationRoutes.getRoutes());
@@ -119,6 +130,17 @@ export class Server {
     });
   }
 
+  // 🆕 MÉTODO PARA CREAR DIRECTORIOS DE UPLOAD
+  private async ensureUploadDirectories() {
+    try {
+      const { UploadRoutes } = await import("./routes/upload.routes");
+      UploadRoutes.ensureUploadDirectories();
+      console.log('✅ Upload directories verified');
+    } catch (error) {
+      console.error('❌ Error creating upload directories:', error);
+    }
+  }
+
   async start() {
     try {
       await this.routes();
@@ -144,6 +166,8 @@ export class Server {
           console.log(`   Invites: /api/invites/*`);
           console.log(`   Notifications: /api/notifications/*`);
           console.log(`   Moderation: /api/moderation/*`);
+          console.log(`   🆕 Upload: /api/upload/* (avatar, post, comment)`);
+          console.log(`   🆕 Files: /uploads/* (static files)`);
         }
       });
     } catch (error) {
