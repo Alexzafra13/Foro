@@ -1,4 +1,4 @@
-// src/domain/use-cases/user/get-public-profile.use-case.ts - CON NUEVOS FILTROS DE PRIVACIDAD
+// src/domain/use-cases/user/get-public-profile.use-case.ts - COMPLETO CON MEJORAS PARA PERFILES RESTRICTIVOS
 import { UserRepository } from '../../repositories/user.repository';
 import { UserSettingsRepository } from '../../repositories/user-settings.repository';
 import { PostRepository } from '../../repositories/post.repository';
@@ -31,7 +31,7 @@ export interface PublicUserProfileDto {
   // Metadatos
   isPrivateProfile: boolean;
   isOwnProfile: boolean; // Si es el perfil del propio usuario
-  accessLevel: 'full' | 'limited' | 'restricted'; // Nuevo campo para indicar nivel de acceso
+  accessLevel: 'full' | 'limited' | 'basic'; // ✅ AGREGADO: 'basic' para perfiles muy restrictivos
 }
 
 export interface PublicUserStatsDto {
@@ -81,12 +81,8 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
     // 6. Determinar nivel de acceso
     const accessLevel = this.determineAccessLevel(userSettings, viewerPermissions, isOwnProfile);
     
-    // 7. Si acceso denegado, lanzar error
-    if (accessLevel === 'denied') {
-      throw UserErrors.insufficientPermissions();
-    }
-    
-    // 8. Construir perfil según nivel de acceso
+    // ✅ 7. CAMBIO IMPORTANTE: Ya no lanzamos error para 'denied', sino que construimos perfil según nivel
+    // Construir perfil según nivel de acceso
     return this.buildProfileResponse(user, userSettings, accessLevel, isOwnProfile);
   }
 
@@ -104,7 +100,7 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
     };
   }
 
-  private determineAccessLevel(userSettings: any, viewerPermissions: any, isOwnProfile: boolean): 'full' | 'limited' | 'restricted' | 'denied' {
+  private determineAccessLevel(userSettings: any, viewerPermissions: any, isOwnProfile: boolean): 'full' | 'limited' | 'basic' {
     // El propio usuario siempre ve su perfil completo
     if (isOwnProfile) return 'full';
     
@@ -116,7 +112,7 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       if (viewerPermissions.isModerator || viewerPermissions.isAdmin) {
         return 'full';
       }
-      return 'denied'; // Completamente bloqueado para no-moderadores
+      return 'basic'; // ✅ CAMBIO: En lugar de 'denied', devolvemos 'basic'
     }
     
     // Verificar privateProfile (restrictivo medio)
@@ -124,7 +120,7 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       if (viewerPermissions.isAuthenticated) {
         return 'limited'; // Información básica para usuarios autenticados
       }
-      return 'denied'; // Bloqueado para no autenticados
+      return 'basic'; // ✅ CAMBIO: En lugar de 'denied', devolvemos información mínima
     }
     
     // Perfil público con posibles restricciones específicas
@@ -134,27 +130,48 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
   private async buildProfileResponse(
     user: any, 
     userSettings: any, 
-    accessLevel: 'full' | 'limited' | 'restricted', 
+    accessLevel: 'full' | 'limited' | 'basic', 
     isOwnProfile: boolean
   ): Promise<PublicUserProfileDto> {
     
-    // Base del perfil que siempre se muestra
+    // ✅ INFORMACIÓN BÁSICA QUE SIEMPRE SE MUESTRA (incluso en perfiles restrictivos)
     const baseProfile = {
       id: user.id,
       username: user.username,
       avatarUrl: user.avatarUrl || null,
-      reputation: user.reputation,
-      role: user.role!,
-      isEmailVerified: user.isEmailVerified || false,
       isOwnProfile,
       accessLevel
     };
 
-    // Perfil limitado (privateProfile = true)
+    // ✅ PERFIL BÁSICO (restrictToModerators = true Y viewer no es mod/admin)
+    if (accessLevel === 'basic') {
+      return {
+        ...baseProfile,
+        bio: null,
+        reputation: 0, // No mostrar reputación en perfiles básicos
+        role: { id: 1, name: 'user' }, // Rol genérico para perfiles básicos
+        isEmailVerified: false, // No mostrar estado de verificación
+        createdAt: new Date('2020-01-01'), // Fecha genérica
+        lastLoginAt: null,
+        stats: {
+          totalPosts: 0,
+          totalComments: 0,
+          totalVotes: 0,
+          joinedDaysAgo: 0,
+          lastActivityAt: null
+        },
+        isPrivateProfile: true
+      };
+    }
+
+    // ✅ PERFIL LIMITADO (privateProfile = true Y viewer está autenticado)
     if (accessLevel === 'limited') {
       return {
         ...baseProfile,
         bio: null,
+        reputation: user.reputation, // En perfil limitado sí mostramos reputación
+        role: user.role, // Y rol real
+        isEmailVerified: user.isEmailVerified || false, // Y verificación
         createdAt: user.createdAt,
         lastLoginAt: null,
         stats: {
@@ -168,27 +185,24 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       };
     }
 
-    // Perfil completo - aplicar filtros específicos
+    // ✅ PERFIL COMPLETO - aplicar filtros específicos según configuración
     const stats = await this.getUserStats(user.id, user.createdAt, userSettings);
     
     const fullProfile: PublicUserProfileDto = {
       ...baseProfile,
       bio: user.bio || null,
-      createdAt: user.createdAt, // ✅ CORREGIDO: Siempre mantener para cálculos, filtrar después
+      reputation: user.reputation,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified || false,
+      createdAt: userSettings.showJoinDate ? user.createdAt : new Date('2020-01-01'),
       lastLoginAt: userSettings.showLastSeen ? (user.lastLoginAt || null) : null,
       stats: userSettings.showStats ? stats : this.getEmptyStats(user.createdAt),
       isPrivateProfile: false
     };
 
     // Agregar email si está configurado para mostrarse
-    if (userSettings.showEmail) {
+    if (userSettings.showEmail && user.email) {
       fullProfile.email = user.email;
-    }
-
-    // ✅ FILTRADO CORRECTO: Si showJoinDate es false, ocultar la fecha en el frontend
-    if (!userSettings.showJoinDate) {
-      // Para el frontend, enviamos una fecha muy genérica o null
-      fullProfile.createdAt = new Date('2020-01-01'); // Fecha genérica
     }
 
     return fullProfile;
