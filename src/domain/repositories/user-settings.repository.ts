@@ -1,6 +1,7 @@
+// src/domain/repositories/user-settings.repository.ts - CORREGIDO SIN DUPLICACIÓN
 import { UserSettingsEntity } from '../entities/user-settings.entity';
 
-
+// Interface movida desde datasource para evitar duplicación
 export interface CreateUserSettingsDto {
   userId: number;
   theme: 'light' | 'dark' | 'system';
@@ -12,6 +13,10 @@ export interface CreateUserSettingsDto {
   privateProfile: boolean;
   showEmail: boolean;
   showLastSeen: boolean;
+  // Nuevos campos
+  showStats: boolean;
+  showJoinDate: boolean;
+  restrictToModerators: boolean;
 }
 
 export abstract class UserSettingsRepository {

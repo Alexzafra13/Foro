@@ -148,6 +148,12 @@ model UserSettings {
   privateProfile        Boolean  @default(false) @map("private_profile")
   showEmail             Boolean  @default(false) @map("show_email")
   showLastSeen          Boolean  @default(true) @map("show_last_seen")
+  
+  // 🆕 NUEVOS CAMPOS DE PRIVACIDAD
+  showStats             Boolean  @default(true) @map("show_stats") // Mostrar estadísticas (posts, comentarios, votos)
+  showJoinDate          Boolean  @default(true) @map("show_join_date") // Mostrar fecha de registro
+  restrictToModerators  Boolean  @default(false) @map("restrict_to_moderators") // Solo admins/mods pueden ver
+  
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 

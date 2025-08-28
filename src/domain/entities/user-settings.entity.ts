@@ -1,6 +1,5 @@
-// src/domain/entities/user-settings.entity.ts
+// src/domain/entities/user-settings.entity.ts - CON NUEVOS CAMPOS DE PRIVACIDAD
 
-// ✅ INTERFACE ESPECÍFICA PARA CREAR CONFIGURACIONES
 export interface CreateUserSettingsData {
   userId: number;
   theme: 'light' | 'dark' | 'system';
@@ -12,6 +11,10 @@ export interface CreateUserSettingsData {
   privateProfile: boolean;
   showEmail: boolean;
   showLastSeen: boolean;
+  // Nuevos campos
+  showStats: boolean;
+  showJoinDate: boolean;
+  restrictToModerators: boolean;
 }
 
 export class UserSettingsEntity {
@@ -27,6 +30,10 @@ export class UserSettingsEntity {
     public privateProfile: boolean,
     public showEmail: boolean,
     public showLastSeen: boolean,
+    // Nuevos campos
+    public showStats: boolean,
+    public showJoinDate: boolean,
+    public restrictToModerators: boolean,
     public createdAt: Date,
     public updatedAt: Date,
     public user?: {
@@ -41,6 +48,7 @@ export class UserSettingsEntity {
       id, userId, theme, language, timezone,
       emailNotifications, postNotifications, commentNotifications,
       privateProfile, showEmail, showLastSeen,
+      showStats, showJoinDate, restrictToModerators,
       createdAt, updatedAt, user
     } = object;
 
@@ -51,11 +59,13 @@ export class UserSettingsEntity {
       id, userId, theme || 'system', language || 'es', timezone || 'UTC',
       emailNotifications ?? true, postNotifications ?? true, commentNotifications ?? true,
       privateProfile ?? false, showEmail ?? false, showLastSeen ?? true,
+      // Valores por defecto para nuevos campos
+      showStats ?? true, showJoinDate ?? true, restrictToModerators ?? false,
       createdAt, updatedAt, user
     );
   }
 
-  // Métodos de dominio
+  // Métodos de dominio existentes
   isPrivate(): boolean {
     return this.privateProfile;
   }
@@ -78,6 +88,26 @@ export class UserSettingsEntity {
 
   shouldShowLastSeen(): boolean {
     return this.showLastSeen;
+  }
+
+  // Nuevos métodos de dominio para privacidad
+  shouldShowStats(): boolean {
+    return this.showStats;
+  }
+
+  shouldShowJoinDate(): boolean {
+    return this.showJoinDate;
+  }
+
+  isRestrictedToModerators(): boolean {
+    return this.restrictToModerators;
+  }
+
+  // Método para determinar el nivel de acceso requerido
+  getRequiredAccessLevel(): 'public' | 'registered' | 'moderator' {
+    if (this.restrictToModerators) return 'moderator';
+    if (this.privateProfile) return 'registered';
+    return 'public';
   }
 
   updateTheme(newTheme: 'light' | 'dark' | 'system'): void {
@@ -119,6 +149,9 @@ export class UserSettingsEntity {
     privateProfile?: boolean;
     showEmail?: boolean;
     showLastSeen?: boolean;
+    showStats?: boolean;
+    showJoinDate?: boolean;
+    restrictToModerators?: boolean;
   }): void {
     if (settings.privateProfile !== undefined) {
       this.privateProfile = settings.privateProfile;
@@ -129,10 +162,19 @@ export class UserSettingsEntity {
     if (settings.showLastSeen !== undefined) {
       this.showLastSeen = settings.showLastSeen;
     }
+    if (settings.showStats !== undefined) {
+      this.showStats = settings.showStats;
+    }
+    if (settings.showJoinDate !== undefined) {
+      this.showJoinDate = settings.showJoinDate;
+    }
+    if (settings.restrictToModerators !== undefined) {
+      this.restrictToModerators = settings.restrictToModerators;
+    }
     this.updatedAt = new Date();
   }
 
-  // ✅ CORREGIDO: Configuraciones por defecto para nuevos usuarios
+  // Configuraciones por defecto para nuevos usuarios
   static createDefault(userId: number): CreateUserSettingsData {
     return {
       userId,
@@ -144,7 +186,11 @@ export class UserSettingsEntity {
       commentNotifications: true,
       privateProfile: false,
       showEmail: false,
-      showLastSeen: true
+      showLastSeen: true,
+      // Nuevos valores por defecto
+      showStats: true,
+      showJoinDate: true,
+      restrictToModerators: false
     };
   }
 }

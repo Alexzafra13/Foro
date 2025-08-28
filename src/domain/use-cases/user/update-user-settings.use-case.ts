@@ -1,4 +1,4 @@
-// src/domain/use-cases/settings/update-user-settings.use-case.ts
+// src/domain/use-cases/user/update-user-settings.use-case.ts - CON NUEVOS CAMPOS
 import { UserSettingsRepository } from '../../repositories/user-settings.repository';
 import { UserRepository } from '../../repositories/user.repository';
 import { ActivityLogRepository } from '../../repositories/activity-log.repository';
@@ -16,6 +16,10 @@ export interface UpdateUserSettingsRequestDto {
   privateProfile?: boolean;
   showEmail?: boolean;
   showLastSeen?: boolean;
+  // Nuevos campos
+  showStats?: boolean;
+  showJoinDate?: boolean;
+  restrictToModerators?: boolean;
   ipAddress?: string;
 }
 
@@ -29,6 +33,10 @@ export interface UpdateUserSettingsResponseDto {
   privateProfile: boolean;
   showEmail: boolean;
   showLastSeen: boolean;
+  // Nuevos campos en respuesta
+  showStats: boolean;
+  showJoinDate: boolean;
+  restrictToModerators: boolean;
   updatedAt: Date;
   changes: string[];
 }
@@ -68,7 +76,11 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
         commentNotifications: true,
         privateProfile: false,
         showEmail: false,
-        showLastSeen: true
+        showLastSeen: true,
+        // Valores por defecto para nuevos campos
+        showStats: true,
+        showJoinDate: true,
+        restrictToModerators: false
       });
     }
 
@@ -76,7 +88,7 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
     const updateData: any = {};
     const changes: string[] = [];
 
-    // Validar y actualizar cada campo
+    // Validar y actualizar cada campo (lógica existente)
     if (settingsData.theme !== undefined) {
       this.validateTheme(settingsData.theme);
       if (settingsData.theme !== currentSettings.theme) {
@@ -101,14 +113,17 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
       }
     }
 
-    // Configuraciones booleanas
+    // Configuraciones booleanas (incluyendo las nuevas)
     const booleanSettings: (keyof typeof settingsData)[] = [
       'emailNotifications', 'postNotifications', 'commentNotifications',
-      'privateProfile', 'showEmail', 'showLastSeen'
+      'privateProfile', 'showEmail', 'showLastSeen',
+      // Nuevas configuraciones
+      'showStats', 'showJoinDate', 'restrictToModerators'
     ];
 
     booleanSettings.forEach(setting => {
       if (settingsData[setting] !== undefined) {
+        this.validateBooleanSetting(setting, settingsData[setting]);
         if (settingsData[setting] !== (currentSettings as any)[setting]) {
           updateData[setting] = settingsData[setting];
           changes.push(setting);
@@ -116,15 +131,18 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
       }
     });
 
-    // 4. Si no hay cambios, retornar configuraciones actuales
+    // 4. Validaciones especiales para configuraciones de privacidad
+    this.validatePrivacySettings(updateData, currentSettings);
+
+    // 5. Si no hay cambios, retornar configuraciones actuales
     if (changes.length === 0) {
       return this.formatSettingsResponse(currentSettings, changes);
     }
 
-    // 5. Actualizar configuraciones
+    // 6. Actualizar configuraciones
     const updatedSettings = await this.userSettingsRepository.updateByUserId(userId, updateData);
 
-    // 6. Registrar actividad
+    // 7. Registrar actividad
     try {
       const activityLog = ActivityLogEntity.createSettingsUpdatedLog(userId, changes, ipAddress);
       await this.activityLogRepository.create(activityLog);
@@ -132,7 +150,7 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
       console.error('Error logging settings update:', error);
     }
 
-    // 7. Retornar configuraciones actualizadas
+    // 8. Retornar configuraciones actualizadas
     return this.formatSettingsResponse(updatedSettings, changes);
   }
 
@@ -151,12 +169,10 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
   }
 
   private validateTimezone(timezone: string): void {
-    // Validación básica de timezone
     if (!timezone || timezone.length < 3 || timezone.length > 50) {
       throw ValidationErrors.invalidFormat('Timezone', 'valid timezone identifier');
     }
 
-    // Lista de timezones comunes válidos
     const commonTimezones = [
       'UTC', 'Europe/Madrid', 'America/New_York', 'America/Los_Angeles',
       'America/Mexico_City', 'America/Argentina/Buenos_Aires', 'America/Sao_Paulo',
@@ -166,6 +182,33 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
 
     if (!commonTimezones.includes(timezone)) {
       throw ValidationErrors.invalidFormat('Timezone', 'supported timezone');
+    }
+  }
+
+  private validateBooleanSetting(settingName: string, value: any): void {
+    if (typeof value !== 'boolean') {
+      throw ValidationErrors.invalidFormat(settingName, 'boolean value');
+    }
+  }
+
+  // Nueva validación para configuraciones de privacidad
+  private validatePrivacySettings(updateData: any, currentSettings: any): void {
+    // Si restrictToModerators se activa, verificar coherencia
+    if (updateData.restrictToModerators === true) {
+      // Advertir que es el nivel más restrictivo
+      console.log(`User ${currentSettings.userId} enabling most restrictive privacy level`);
+    }
+
+    // Si se desactiva privateProfile pero restrictToModerators sigue activo
+    if (updateData.privateProfile === false && 
+        (updateData.restrictToModerators === true || currentSettings.restrictToModerators === true)) {
+      console.log(`Privacy settings inconsistency detected for user ${currentSettings.userId}`);
+    }
+
+    // Validar que no se contradigan las configuraciones
+    if (updateData.showStats === false && updateData.showJoinDate === false && 
+        updateData.showEmail === false && updateData.showLastSeen === false) {
+      console.log(`User ${currentSettings.userId} hiding all profile information`);
     }
   }
 
@@ -180,20 +223,17 @@ export class UpdateUserSettings implements UpdateUserSettingsUseCase {
       privateProfile: settings.privateProfile,
       showEmail: settings.showEmail,
       showLastSeen: settings.showLastSeen,
+      // Nuevos campos en respuesta
+      showStats: settings.showStats,
+      showJoinDate: settings.showJoinDate,
+      restrictToModerators: settings.restrictToModerators,
       updatedAt: settings.updatedAt || new Date(),
       changes
     };
   }
 }
 
-// ========================================
-// GET USER SETTINGS USE CASE
-// ========================================
-
-export interface GetUserSettingsRequestDto {
-  userId: number; // Del JWT
-}
-
+// También actualizar el GetUserSettings para incluir los nuevos campos
 export interface GetUserSettingsResponseDto {
   theme: 'light' | 'dark' | 'system';
   language: string;
@@ -204,21 +244,21 @@ export interface GetUserSettingsResponseDto {
   privateProfile: boolean;
   showEmail: boolean;
   showLastSeen: boolean;
+  // Nuevos campos
+  showStats: boolean;
+  showJoinDate: boolean;
+  restrictToModerators: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
-interface GetUserSettingsUseCase {
-  execute(dto: GetUserSettingsRequestDto): Promise<GetUserSettingsResponseDto>;
-}
-
-export class GetUserSettings implements GetUserSettingsUseCase {
+export class GetUserSettings {
   constructor(
     private readonly userSettingsRepository: UserSettingsRepository,
     private readonly userRepository: UserRepository
   ) {}
 
-  async execute(dto: GetUserSettingsRequestDto): Promise<GetUserSettingsResponseDto> {
+  async execute(dto: { userId: number }): Promise<GetUserSettingsResponseDto> {
     const { userId } = dto;
 
     // 1. Verificar que el usuario existe
@@ -242,7 +282,11 @@ export class GetUserSettings implements GetUserSettingsUseCase {
         commentNotifications: true,
         privateProfile: false,
         showEmail: false,
-        showLastSeen: true
+        showLastSeen: true,
+        // Nuevos valores por defecto
+        showStats: true,
+        showJoinDate: true,
+        restrictToModerators: false
       });
     }
 
@@ -257,6 +301,10 @@ export class GetUserSettings implements GetUserSettingsUseCase {
       privateProfile: settings.privateProfile,
       showEmail: settings.showEmail,
       showLastSeen: settings.showLastSeen,
+      // Nuevos campos
+      showStats: settings.showStats,
+      showJoinDate: settings.showJoinDate,
+      restrictToModerators: settings.restrictToModerators,
       createdAt: settings.createdAt,
       updatedAt: settings.updatedAt
     };

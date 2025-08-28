@@ -1,5 +1,7 @@
+// src/infrastructure/datasources/prisma-user-settings.datasource.ts - ACTUALIZADO
 import { PrismaClient } from '@prisma/client';
 import { UserSettingsEntity } from '../../domain/entities/user-settings.entity';
+
 
 export interface CreateUserSettingsDto {
   userId: number;
@@ -12,14 +14,12 @@ export interface CreateUserSettingsDto {
   privateProfile: boolean;
   showEmail: boolean;
   showLastSeen: boolean;
+  // Nuevos campos agregados
+  showStats: boolean;
+  showJoinDate: boolean;
+  restrictToModerators: boolean;
 }
 
-export abstract class UserSettingsDatasource {
-  abstract create(createDto: CreateUserSettingsDto): Promise<UserSettingsEntity>;
-  abstract findByUserId(userId: number): Promise<UserSettingsEntity | null>;
-  abstract updateByUserId(userId: number, updateData: any): Promise<UserSettingsEntity>;
-  abstract deleteByUserId(userId: number): Promise<UserSettingsEntity>;
-}
 
 export class PrismaUserSettingsDatasource implements UserSettingsDatasource {
   constructor(private readonly prisma: PrismaClient) {}

@@ -1,4 +1,4 @@
-// src/domain/use-cases/user/get-public-profile.use-case.ts
+// src/domain/use-cases/user/get-public-profile.use-case.ts - CON NUEVOS FILTROS DE PRIVACIDAD
 import { UserRepository } from '../../repositories/user.repository';
 import { UserSettingsRepository } from '../../repositories/user-settings.repository';
 import { PostRepository } from '../../repositories/post.repository';
@@ -31,6 +31,7 @@ export interface PublicUserProfileDto {
   // Metadatos
   isPrivateProfile: boolean;
   isOwnProfile: boolean; // Si es el perfil del propio usuario
+  accessLevel: 'full' | 'limited' | 'restricted'; // Nuevo campo para indicar nivel de acceso
 }
 
 export interface PublicUserStatsDto {
@@ -62,28 +63,98 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       throw UserErrors.userNotFound(`Usuario '${username}' no encontrado`);
     }
 
-    // 2. Verificar si el usuario está baneado (solo mostrar a admins/mods)
+    // 2. Obtener información del viewer
     const viewerUser = viewerUserId ? await this.userRepository.findById(viewerUserId) : null;
-    const canViewBannedUsers = viewerUser && ['admin', 'moderator'].includes(viewerUser.role?.name || '');
+    const isOwnProfile = viewerUserId === user.id;
     
-    if (user.isBanned && !canViewBannedUsers) {
+    // 3. Determinar permisos del viewer
+    const viewerPermissions = this.getViewerPermissions(viewerUser);
+    
+    // 4. Verificar si el usuario está baneado (solo visible para admins/mods)
+    if (user.isBanned && !viewerPermissions.canViewBannedUsers) {
       throw UserErrors.userNotFound(`Usuario '${username}' no encontrado`);
     }
 
-    // 3. Obtener configuraciones de privacidad
+    // 5. Obtener configuraciones de privacidad
     const userSettings = await this.getUserSettings(user.id);
-    const isOwnProfile = viewerUserId === user.id;
     
-    // 4. Si el perfil es privado y no es el propio usuario, retornar perfil limitado
-    if (userSettings.privateProfile && !isOwnProfile && !canViewBannedUsers) {
+    // 6. Determinar nivel de acceso
+    const accessLevel = this.determineAccessLevel(userSettings, viewerPermissions, isOwnProfile);
+    
+    // 7. Si acceso denegado, lanzar error
+    if (accessLevel === 'denied') {
+      throw UserErrors.insufficientPermissions();
+    }
+    
+    // 8. Construir perfil según nivel de acceso
+    return this.buildProfileResponse(user, userSettings, accessLevel, isOwnProfile);
+  }
+
+  private getViewerPermissions(viewerUser: any) {
+    const isAdmin = viewerUser?.role?.name === 'admin';
+    const isModerator = viewerUser?.role?.name === 'moderator';
+    const isAuthenticated = !!viewerUser;
+    
+    return {
+      isAdmin,
+      isModerator,
+      isAuthenticated,
+      canViewBannedUsers: isAdmin || isModerator,
+      canBypassPrivacyRestrictions: isAdmin || isModerator
+    };
+  }
+
+  private determineAccessLevel(userSettings: any, viewerPermissions: any, isOwnProfile: boolean): 'full' | 'limited' | 'restricted' | 'denied' {
+    // El propio usuario siempre ve su perfil completo
+    if (isOwnProfile) return 'full';
+    
+    // Admins/mods pueden saltarse algunas restricciones
+    if (viewerPermissions.canBypassPrivacyRestrictions) return 'full';
+    
+    // Verificar restrictToModerators (más restrictivo)
+    if (userSettings.restrictToModerators) {
+      if (viewerPermissions.isModerator || viewerPermissions.isAdmin) {
+        return 'full';
+      }
+      return 'denied'; // Completamente bloqueado para no-moderadores
+    }
+    
+    // Verificar privateProfile (restrictivo medio)
+    if (userSettings.privateProfile) {
+      if (viewerPermissions.isAuthenticated) {
+        return 'limited'; // Información básica para usuarios autenticados
+      }
+      return 'denied'; // Bloqueado para no autenticados
+    }
+    
+    // Perfil público con posibles restricciones específicas
+    return 'full';
+  }
+
+  private async buildProfileResponse(
+    user: any, 
+    userSettings: any, 
+    accessLevel: 'full' | 'limited' | 'restricted', 
+    isOwnProfile: boolean
+  ): Promise<PublicUserProfileDto> {
+    
+    // Base del perfil que siempre se muestra
+    const baseProfile = {
+      id: user.id,
+      username: user.username,
+      avatarUrl: user.avatarUrl || null,
+      reputation: user.reputation,
+      role: user.role!,
+      isEmailVerified: user.isEmailVerified || false,
+      isOwnProfile,
+      accessLevel
+    };
+
+    // Perfil limitado (privateProfile = true)
+    if (accessLevel === 'limited') {
       return {
-        id: user.id,
-        username: user.username,
+        ...baseProfile,
         bio: null,
-        avatarUrl: user.avatarUrl || null,
-        reputation: user.reputation,
-        role: user.role!,
-        isEmailVerified: user.isEmailVerified || false,
         createdAt: user.createdAt,
         lastLoginAt: null,
         stats: {
@@ -93,36 +164,34 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
           joinedDaysAgo: this.calculateJoinedDaysAgo(user.createdAt),
           lastActivityAt: null
         },
-        isPrivateProfile: true,
-        isOwnProfile: false
+        isPrivateProfile: true
       };
     }
 
-    // 5. Obtener estadísticas completas
-    const stats = await this.getUserStats(user.id, user.createdAt);
-
-    // 6. Construir perfil público completo
-    const profile: PublicUserProfileDto = {
-      id: user.id,
-      username: user.username,
+    // Perfil completo - aplicar filtros específicos
+    const stats = await this.getUserStats(user.id, user.createdAt, userSettings);
+    
+    const fullProfile: PublicUserProfileDto = {
+      ...baseProfile,
       bio: user.bio || null,
-      avatarUrl: user.avatarUrl || null,
-      reputation: user.reputation,
-      role: user.role!,
-      isEmailVerified: user.isEmailVerified || false,
-      createdAt: user.createdAt,
+      createdAt: userSettings.showJoinDate ? user.createdAt : user.createdAt, // Mantener para cálculos internos
       lastLoginAt: userSettings.showLastSeen ? (user.lastLoginAt || null) : null,
-      stats,
-      isPrivateProfile: false,
-      isOwnProfile
+      stats: userSettings.showStats ? stats : this.getEmptyStats(user.createdAt),
+      isPrivateProfile: false
     };
 
-    // 7. Incluir email si está configurado para mostrarse públicamente
+    // Agregar email si está configurado para mostrarse
     if (userSettings.showEmail) {
-      profile.email = user.email;
+      fullProfile.email = user.email;
     }
 
-    return profile;
+    // Si showJoinDate es false, ocultar la fecha en el frontend (enviar null)
+    if (!userSettings.showJoinDate) {
+      // Para el frontend, enviamos una fecha muy genérica o null
+      fullProfile.createdAt = new Date('2020-01-01'); // Fecha genérica
+    }
+
+    return fullProfile;
   }
 
   private async getUserSettings(userId: number) {
@@ -131,28 +200,37 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       return {
         privateProfile: settings?.privateProfile || false,
         showEmail: settings?.showEmail || false,
-        showLastSeen: settings?.showLastSeen || true
+        showLastSeen: settings?.showLastSeen || true,
+        // Nuevas configuraciones
+        showStats: settings?.showStats ?? true,
+        showJoinDate: settings?.showJoinDate ?? true,
+        restrictToModerators: settings?.restrictToModerators || false
       };
     } catch (error) {
-      // Si no existen configuraciones, usar valores por defecto
       console.warn(`No settings found for user ${userId}, using defaults`);
       return {
         privateProfile: false,
         showEmail: false,
-        showLastSeen: true
+        showLastSeen: true,
+        showStats: true,
+        showJoinDate: true,
+        restrictToModerators: false
       };
     }
   }
 
-  private async getUserStats(userId: number, userCreatedAt: Date): Promise<PublicUserStatsDto> {
+  private async getUserStats(userId: number, userCreatedAt: Date, userSettings: any): Promise<PublicUserStatsDto> {
     try {
-      // Obtener conteos de posts y comentarios
-      // Nota: Si no tienes estos métodos implementados, usar 0 por defecto
+      // Si showStats es false, retornar estadísticas vacías
+      if (!userSettings.showStats) {
+        return this.getEmptyStats(userCreatedAt);
+      }
+
+      // Obtener estadísticas reales
       let postsCount = 0;
       let commentsCount = 0;
 
       try {
-        // Intentar obtener posts del usuario usando findMany
         const postsResult = await this.postRepository.findMany(
           { authorId: userId },
           { page: 1, limit: 1 }
@@ -163,7 +241,6 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
       }
 
       try {
-        // Intentar obtener comentarios del usuario usando findMany
         const commentsResult = await this.commentRepository.findMany(
           { authorId: userId },
           { page: 1, limit: 1 }
@@ -173,10 +250,9 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
         console.warn(`Could not get comments count for user ${userId}:`, error);
       }
 
-      // Para los votos, usar 0 por ahora (implementar después)
-      const votesCount = 0;
+      const votesCount = 0; // Implementar después si es necesario
 
-      // Calcular última actividad (último post o comentario)
+      // Calcular última actividad
       const [lastPost, lastComment] = await Promise.all([
         this.getLatestPost(userId),
         this.getLatestComment(userId)
@@ -199,15 +275,25 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
         lastActivityAt
       };
     } catch (error) {
-      console.warn(`Error getting user stats for user ${userId}:`, error);
-      return {
-        totalPosts: 0,
-        totalComments: 0,
-        totalVotes: 0,
-        joinedDaysAgo: this.calculateJoinedDaysAgo(userCreatedAt),
-        lastActivityAt: null
-      };
+      console.error(`Error getting user stats for ${userId}:`, error);
+      return this.getEmptyStats(userCreatedAt);
     }
+  }
+
+  private getEmptyStats(userCreatedAt: Date): PublicUserStatsDto {
+    return {
+      totalPosts: 0,
+      totalComments: 0,
+      totalVotes: 0,
+      joinedDaysAgo: this.calculateJoinedDaysAgo(userCreatedAt),
+      lastActivityAt: null
+    };
+  }
+
+  private calculateJoinedDaysAgo(createdAt: Date): number {
+    const now = new Date();
+    const diffTime = now.getTime() - createdAt.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   }
 
   private async getLatestPost(userId: number) {
@@ -226,17 +312,11 @@ export class GetPublicProfile implements GetPublicProfileUseCase {
     try {
       const comments = await this.commentRepository.findMany(
         { authorId: userId }, 
-        { page: 1, limit: 1 }
+        { page: 1, limit: 1, sortBy: 'createdAt', sortOrder: 'desc' }
       );
       return comments.data.length > 0 ? comments.data[0] : null;
     } catch {
       return null;
     }
-  }
-
-  private calculateJoinedDaysAgo(createdAt: Date): number {
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - createdAt.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 }
