@@ -1,4 +1,4 @@
-// src/domain/use-cases/user/update-profile.use-case.ts - VERSIÓN COMPLETA
+// src/domain/use-cases/user/update-profile.use-case.ts - VALIDACIÓN CORREGIDA
 import { UserRepository } from '../../repositories/user.repository';
 import { ActivityLogRepository } from '../../repositories/activity-log.repository';
 import { UserErrors, ValidationErrors } from '../../../shared/errors';
@@ -70,7 +70,7 @@ export class UpdateProfile implements UpdateProfileUseCase {
     // Validar y actualizar bio si se proporciona
     if (bio !== undefined) {
       this.validateBio(bio);
-      const trimmedBio = bio?.trim() || null; // ✅ Usar optional chaining
+      const trimmedBio = bio?.trim() || null;
       if (trimmedBio !== existingUser.bio) {
         updateData.bio = trimmedBio;
         changes.push('bio');
@@ -138,7 +138,6 @@ export class UpdateProfile implements UpdateProfileUseCase {
     }
   }
 
-  // ✅ CORRECCIÓN: Acepta string | null
   private validateBio(bio: string | null): void {
     // Si bio es null, undefined o string vacío, no hacer validaciones
     if (!bio) {
@@ -151,7 +150,7 @@ export class UpdateProfile implements UpdateProfileUseCase {
 
     // Validación básica de contenido inapropiado
     const forbiddenWords = ['spam', 'hack', 'phishing']; // Lista básica
-    const lowerBio = bio.toLowerCase(); // ✅ AHORA es seguro llamar toLowerCase
+    const lowerBio = bio.toLowerCase();
     
     for (const word of forbiddenWords) {
       if (lowerBio.includes(word)) {
@@ -160,23 +159,18 @@ export class UpdateProfile implements UpdateProfileUseCase {
     }
   }
 
-  // ✅ CORRECCIÓN: Acepta string | null
+  // 🔧 VALIDACIÓN CORREGIDA PARA AVATARES
   private validateAvatarUrl(avatarUrl: string | null): void {
     if (!avatarUrl) return;
 
-    // Validar que sea una URL válida
-    try {
-      new URL(avatarUrl);
-    } catch {
-      throw ValidationErrors.invalidFormat('Avatar URL', 'valid URL');
-    }
+    console.log('🔍 Validating avatar URL:', avatarUrl);
 
-    // Validar longitud
+    // Validar longitud máxima
     if (avatarUrl.length > 500) {
       throw ValidationErrors.maxLength('Avatar URL', 500);
     }
 
-    // Validar que sea una imagen (extensiones permitidas)
+    // Lista de extensiones de imagen válidas
     const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const hasValidExtension = validExtensions.some(ext => 
       avatarUrl.toLowerCase().includes(ext)
@@ -186,6 +180,72 @@ export class UpdateProfile implements UpdateProfileUseCase {
       throw ValidationErrors.invalidFormat(
         'Avatar URL', 
         'image file (jpg, png, gif, webp)'
+      );
+    }
+
+    // 🆕 VALIDACIÓN INTELIGENTE: Distinguir entre archivos internos y URLs externas
+    
+    // CASO 1: Archivos internos del servidor (uploads)
+    if (avatarUrl.startsWith('/uploads/') || avatarUrl.includes('/uploads/')) {
+      console.log('✅ Internal upload file detected:', avatarUrl);
+      
+      // Validaciones adicionales para archivos internos
+      if (avatarUrl.includes('..') || avatarUrl.includes('<') || avatarUrl.includes('>')) {
+        throw ValidationErrors.invalidFormat('Avatar URL', 'secure file path');
+      }
+      
+      return; // Válido - es un archivo interno del servidor
+    }
+
+    // CASO 2: URLs externas - validar como URL completa
+    try {
+      const urlObj = new URL(avatarUrl);
+      
+      // Validar que sea HTTP/HTTPS
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        throw ValidationErrors.invalidFormat('Avatar URL', 'HTTP or HTTPS URL');
+      }
+      
+      // Validar que no sea localhost o IPs privadas (seguridad)
+      const hostname = urlObj.hostname.toLowerCase();
+      const privatePatterns = [
+        /^localhost$/,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[01])\./,
+        /^192\.168\./,
+        /^0\./,
+        /^169\.254\./,
+        /^::1$/,
+        /^fc00:/,
+        /^fe80:/
+      ];
+      
+      if (privatePatterns.some(pattern => pattern.test(hostname))) {
+        throw ValidationErrors.invalidFormat('Avatar URL', 'public URL (private IPs not allowed)');
+      }
+      
+      console.log('✅ Valid external URL:', avatarUrl);
+      return; // Válido - URL externa correcta
+      
+    } catch (urlError) {
+      // CASO 3: Podría ser una ruta relativa sin / inicial
+      if (avatarUrl.startsWith('uploads/')) {
+        console.log('✅ Relative upload path detected:', avatarUrl);
+        
+        // Validaciones de seguridad para rutas relativas
+        if (avatarUrl.includes('..') || avatarUrl.includes('<') || avatarUrl.includes('>')) {
+          throw ValidationErrors.invalidFormat('Avatar URL', 'secure file path');
+        }
+        
+        return; // Válido - ruta relativa de uploads
+      }
+      
+      // Si llegamos aquí, no es ni URL válida ni ruta interna
+      console.error('❌ Invalid avatar URL format:', avatarUrl, urlError);
+      throw ValidationErrors.invalidFormat(
+        'Avatar URL', 
+        'valid URL or internal file path'
       );
     }
   }
